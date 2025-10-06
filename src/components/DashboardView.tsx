@@ -206,7 +206,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             forceMajeureHr,
             stackingHr,
             rigMoveHr,
-            notReceivedDDOR: getFixedValue("Not Received DDOR"),
+            notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
             totalHrs,
             remarks: getFixedValue("Remarks"),
           };
