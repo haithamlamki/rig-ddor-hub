@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ColumnMapping {
   columnName: string;
@@ -79,7 +80,53 @@ const generateAllConfigs = (): RigConfig[] => {
 const ConfigView = () => {
   const [configs, setConfigs] = useState<RigConfig[]>(generateAllConfigs());
   const [selectedRig, setSelectedRig] = useState<string>(RIGS[0]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Load configurations from database
+  useEffect(() => {
+    const loadConfigs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('rig_configs')
+          .select('*');
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const loadedConfigs = RIGS.map(rigNumber => {
+            const savedConfig = data.find(d => d.rig_number === rigNumber);
+            if (savedConfig && savedConfig.column_mappings) {
+              return {
+                rigNumber,
+                sheetName: savedConfig.sheet_name,
+                columnMappings: Array.isArray(savedConfig.column_mappings) 
+                  ? savedConfig.column_mappings as unknown as ColumnMapping[]
+                  : DEFAULT_MAPPINGS.map(m => ({ ...m }))
+              };
+            }
+            return {
+              rigNumber,
+              sheetName: "DAILY DRILLING REPORT",
+              columnMappings: DEFAULT_MAPPINGS.map(m => ({ ...m }))
+            };
+          });
+          setConfigs(loadedConfigs);
+        }
+      } catch (error) {
+        console.error('Error loading configs:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load configurations",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConfigs();
+  }, []);
 
   const currentConfig = configs.find((c) => c.rigNumber === selectedRig);
 
@@ -136,11 +183,34 @@ const ConfigView = () => {
     );
   };
 
-  const handleSaveConfig = () => {
-    toast({
-      title: "Configuration Saved",
-      description: `Settings for Rig ${selectedRig} have been updated successfully.`,
-    });
+  const handleSaveConfig = async () => {
+    if (!currentConfig) return;
+
+    try {
+      const { error } = await supabase
+        .from('rig_configs')
+        .upsert({
+          rig_number: selectedRig,
+          sheet_name: currentConfig.sheetName,
+          column_mappings: currentConfig.columnMappings as any
+        }, {
+          onConflict: 'rig_number'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Configuration Saved",
+        description: `Settings for Rig ${selectedRig} have been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error saving config:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save configuration",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleResetConfig = () => {
@@ -237,7 +307,11 @@ const ConfigView = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {currentConfig ? (
+            {loading ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <p>Loading configurations...</p>
+              </div>
+            ) : currentConfig ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="sheetName">Excel Sheet Name</Label>
