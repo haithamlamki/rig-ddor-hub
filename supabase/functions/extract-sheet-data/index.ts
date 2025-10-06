@@ -188,8 +188,9 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
   const looksLikeTime = (val: any): boolean => {
     if (val === null || val === undefined) return false;
     const str = String(val).trim();
-    // Check for HH:MM format or decimal number
-    return /^\d{1,2}:\d{2}$/.test(str) || (!isNaN(parseFloat(str)) && parseFloat(str) < 1);
+    const norm = str.replace(/;/g, ':');
+    // Check for HH:MM (supports ':' or ';') or Excel decimal day (<1)
+    return /^\d{1,2}:\d{2}$/.test(norm) || (!isNaN(parseFloat(str)) && parseFloat(str) < 1);
   };
 
   // Find the activity table by looking for "From", "TO", "Dur." headers OR time pattern rows
@@ -307,9 +308,14 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     let startTimeHours = 0;
     if (typeof fromValue === 'number') {
       startTimeHours = fromValue * 24; // Convert Excel decimal to hours
-    } else if (fromStr.includes(':')) {
-      const parts = fromStr.split(':');
-      startTimeHours = parseInt(parts[0] || '0');
+    } else {
+      const fromNorm = fromStr.replace(/;/g, ':');
+      if (fromNorm.includes(':')) {
+        const parts = fromNorm.split(':');
+        const h = parseInt(parts[0] || '0');
+        const m = parseInt(parts[1] || '0');
+        startTimeHours = h + m / 60;
+      }
     }
     
     // Detect if we've wrapped to the next day
@@ -340,50 +346,70 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const durationValue = headerCols.dur ? (row as any)[headerCols.dur] : (row as any)['__EMPTY_2'];
     let hours = 0;
 
-    // Parse duration
+    // Parse duration cell (if present)
+    let hoursFromDur = 0;
     if (durationValue !== null && durationValue !== undefined) {
       if (typeof durationValue === 'number') {
         // Excel stores times as decimal fractions of a day
-        // e.g., 2 hours = 2/24 = 0.0833...
-        hours = durationValue * 24;
+        hoursFromDur = durationValue * 24;
       } else {
-        const durationStr = String(durationValue).trim();
+        const durationStrRaw = String(durationValue).trim();
+        const durationStr = durationStrRaw.replace(/;/g, ':'); // support semicolons
         if (durationStr.includes(':')) {
           // Format: "2:00" or "1:30"
           const parts = durationStr.split(':');
-          hours = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
+          hoursFromDur = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
         } else {
-          // Decimal format
+          // Decimal format (Excel day fraction)
           const parsed = parseFloat(durationStr);
           if (!isNaN(parsed)) {
-            hours = parsed * 24; // Convert from days to hours
+            hoursFromDur = parsed * 24;
           }
         }
       }
     }
 
-    // If duration is missing/zero, compute from From -> TO
-    if (hours === 0) {
-      const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
-      if (toValue !== null && toValue !== undefined && looksLikeTime(toValue)) {
-        let toHours = 0;
-        const toStr = String(toValue).trim();
-        if (typeof toValue === 'number') {
-          toHours = toValue * 24; // Excel decimal to hours
-        } else if (toStr.includes(':')) {
+    // Compute duration from From -> TO (validation)
+    let hoursFromRange = 0;
+    const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
+    if (toValue !== null && toValue !== undefined && looksLikeTime(toValue)) {
+      let toHours = 0;
+      const toStrRaw = String(toValue).trim();
+      if (typeof toValue === 'number') {
+        toHours = toValue * 24; // Excel decimal to hours
+      } else {
+        const toStr = toStrRaw.replace(/;/g, ':');
+        if (toStr.includes(':')) {
           const p = toStr.split(':');
           toHours = parseInt(p[0] || '0') + (parseInt(p[1] || '0') / 60);
         } else {
           const n = parseFloat(toStr);
           if (!isNaN(n)) toHours = n * 24;
         }
-        let diff = toHours - startTimeHours;
-        if (diff < 0) diff += 24; // wrap midnight
-        // Special case: 00:00 to 00:00 means full day
-        if (startTimeHours === 0 && toHours === 0) diff = 24;
-        hours = diff;
       }
+      let diff = toHours - startTimeHours;
+      if (diff < 0) diff += 24; // wrap midnight
+      // Special case: 00:00 to 00:00 means full day
+      if (startTimeHours === 0 && toHours === 0) diff = 24;
+      hoursFromRange = diff;
     }
+
+    // Choose the most reliable duration
+    if (hoursFromDur > 0 && hoursFromRange > 0) {
+      const delta = Math.abs(hoursFromDur - hoursFromRange);
+      if (delta > 0.17) { // >10 minutes mismatch
+        console.log(`Duration mismatch: Dur=${hoursFromDur.toFixed(2)}h vs From/To=${hoursFromRange.toFixed(2)}h. Using From/To.`);
+        hours = hoursFromRange;
+      } else {
+        hours = hoursFromDur;
+      }
+    } else if (hoursFromDur > 0) {
+      hours = hoursFromDur;
+    } else if (hoursFromRange > 0) {
+      hours = hoursFromRange;
+    }
+
+    // If still zero, fallback: infer duration as the 3rd time-like value in the row
 
     if (hours === 0) {
       // Fallback: infer duration as the 3rd time-like value in the row
