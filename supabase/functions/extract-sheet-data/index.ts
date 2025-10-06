@@ -6,20 +6,60 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rate type mapping to hour categories
+// Rate type mapping to hour categories with all synonyms
 const rateTypeMapping: Record<string, string> = {
+  // Operation Hr synonyms
   'OPER': 'Operation Hr',
+  'OP': 'Operation Hr',
   'OP RATE': 'Operation Hr',
+  'OP-RATE': 'Operation Hr',
   'OPERATION': 'Operation Hr',
+  'O RATE': 'Operation Hr',
+  'OPERATION HOURS': 'Operation Hr',
+  'OP/HOURS': 'Operation Hr',
+  
+  // Reduce Hr synonyms
   'REDUCE': 'Reduce Hr',
+  'REDU': 'Reduce Hr',
+  'REDU RATE': 'Reduce Hr',
+  'REDU/RATE': 'Reduce Hr',
+  'REDUCED': 'Reduce Hr',
+  'REDUCTION': 'Reduce Hr',
+  
+  // Standby Hr synonyms
   'STANDBY': 'Standby Hr',
+  
+  // Zero Hr synonyms
   'ZERO': 'Zero Hr',
+  
+  // Repair Hr synonyms
   'REPAIR': 'Repair Hr',
+  'BREAKDOWN': 'Repair Hr',
+  'REPAIR RATE': 'Repair Hr',
+  'BREAKDOWN HOURS': 'Repair Hr',
+  
+  // AM Hr synonyms
   'AM': 'AM Hr',
+  'ANNUAL MAINTENANCE': 'AM Hr',
+  'MAINTENANCE': 'AM Hr',
+  
+  // Special Hr synonyms
   'SPECIAL': 'Special Hr',
+  'SPECIAL RATE': 'Special Hr',
+  
+  // Force Majeure Hr synonyms
   'FORCE MAJEURE': 'Force Majeure Hr',
+  'FORRCE MAJEURE': 'Force Majeure Hr',
+  
+  // STACKING Hr synonyms
   'STACKING': 'STACKING Hr',
+  
+  // Rig Move Hr synonyms
   'RIG MOVE': 'Rig Move Hr',
+  'RIG-MOVE': 'Rig Move Hr',
+  'RIG/MOVE': 'Rig Move Hr',
+  'MOVE': 'Rig Move Hr',
+  'R': 'Rig Move Hr',
 };
 
 // Function to extract and aggregate activity table hours
