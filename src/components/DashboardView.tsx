@@ -84,17 +84,26 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const displayDate = selectedDate || new Date();
   const dateStr = format(displayDate, "yyyy-MM-dd");
 
-  // Load data from database
+  // Load data from database and merge with rig configs
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const { data: extractedData, error } = await supabase
+        
+        // Load extracted data
+        const { data: extractedData, error: extractError } = await supabase
           .from('extracted_ddor_data')
           .select('*')
           .eq('date', dateStr);
 
-        if (error) throw error;
+        if (extractError) throw extractError;
+
+        // Load all rig configurations
+        const { data: rigConfigs, error: configError } = await supabase
+          .from('rig_configs')
+          .select('*');
+
+        if (configError) throw configError;
 
         // Create a map of existing data by rig number
         const dataMap = new Map(
@@ -121,12 +130,27 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           ])
         );
 
-        // Generate full list with all rigs, filling in blanks for missing data
-        const fullData = RIGS.map(rig => 
-          dataMap.get(rig) || {
+        // Create a map of rig configurations
+        const configMap = new Map(
+          (rigConfigs || []).map(config => [config.rig_number, config.column_mappings])
+        );
+
+        // Generate full list with all rigs, filling in blanks with fixed data from config
+        const fullData = RIGS.map(rig => {
+          const existingData = dataMap.get(rig);
+          if (existingData) return existingData;
+
+          // No uploaded data, but check for fixed values in config
+          const mappings = configMap.get(rig) as any[] || [];
+          const getFixedValue = (columnName: string) => {
+            const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
+            return mapping?.fixedValue || "";
+          };
+
+          return {
             date: format(displayDate, "dd-MMM-yy"),
-            rig: rig,
-            client: "",
+            rig: getFixedValue("Rig") || rig,
+            client: getFixedValue("Client"),
             operationHr: 0,
             reduceHr: 0,
             standbyHr: 0,
@@ -137,11 +161,11 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             forceMajeureHr: 0,
             stackingHr: 0,
             rigMoveHr: 0,
-            notReceivedDDOR: "",
+            notReceivedDDOR: getFixedValue("Not Received DDOR"),
             totalHrs: 0,
-            remarks: "",
-          }
-        );
+            remarks: getFixedValue("Remarks"),
+          };
+        });
 
         setData(fullData);
       } catch (error) {
