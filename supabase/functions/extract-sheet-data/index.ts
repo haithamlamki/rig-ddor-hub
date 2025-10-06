@@ -20,6 +20,9 @@ const rateTypeMapping: Record<string, string> = {
   'O RATE': 'Operation Hr',
   'OPERATION HOURS': 'Operation Hr',
   'OP/HOURS': 'Operation Hr',
+  'OPERATION RATE': 'Operation Hr',
+  'OPRETION RATE': 'Operation Hr',  // Handle common typo
+  'OPRETION': 'Operation Hr',
   
   // Reduce Hr synonyms
   'REDUCE': 'Reduce Hr',
