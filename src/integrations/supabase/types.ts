@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      rig_configs: {
+        Row: {
+          column_mappings: Json
+          created_at: string
+          id: string
+          rig_number: string
+          sheet_name: string
+          updated_at: string
+        }
+        Insert: {
+          column_mappings?: Json
+          created_at?: string
+          id?: string
+          rig_number: string
+          sheet_name?: string
+          updated_at?: string
+        }
+        Update: {
+          column_mappings?: Json
+          created_at?: string
+          id?: string
+          rig_number?: string
+          sheet_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
