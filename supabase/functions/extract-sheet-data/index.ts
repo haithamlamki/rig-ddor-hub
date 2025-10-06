@@ -14,6 +14,8 @@ const rateTypeMapping: Record<string, string> = {
   'OP RATE': 'Operation Hr',
   'OP-RATE': 'Operation Hr',
   'O/RATE': 'Operation Hr',
+  'O/ RATE': 'Operation Hr', // handle space after slash
+  'O-RATE': 'Operation Hr',
   'ORATE': 'Operation Hr',
   'O': 'Operation Hr',
   'OPERATION': 'Operation Hr',
@@ -24,6 +26,9 @@ const rateTypeMapping: Record<string, string> = {
   'OPRETION RATE': 'Operation Hr',  // Handle common typo
   'OPRETION': 'Operation Hr',
   'OPRATION': 'Operation Hr',  // Handle common typo - missing E
+  'O/ RTAE': 'Operation Hr',  // Handle transposed letters variant
+  'O RTAE': 'Operation Hr',   // Without slash variant
+  'ORTAE': 'Operation Hr',    // Cleaned string variant
   
   // Reduce Hr synonyms
   'REDUCE': 'Reduce Hr',
