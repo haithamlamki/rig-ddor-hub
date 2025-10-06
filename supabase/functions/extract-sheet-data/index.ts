@@ -72,6 +72,71 @@ const rateTypeMapping: Record<string, string> = {
   'R': 'Rig Move Hr',
 };
 
+// Function to calculate string similarity (Levenshtein distance based)
+function stringSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// Levenshtein distance implementation
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+// Function to find best matching rate type using fuzzy matching
+function findBestRateTypeMatch(input: string): string | null {
+  let bestMatch = '';
+  let bestScore = 0;
+  const threshold = 0.6; // 60% similarity threshold
+  
+  const inputUpper = input.toUpperCase();
+  
+  for (const [key, value] of Object.entries(rateTypeMapping)) {
+    const similarity = stringSimilarity(inputUpper, key);
+    
+    if (similarity > bestScore && similarity >= threshold) {
+      bestScore = similarity;
+      bestMatch = key;
+    }
+  }
+  
+  if (bestMatch) {
+    console.log(`Fuzzy matched "${input}" to "${bestMatch}" (similarity: ${(bestScore * 100).toFixed(1)}%)`);
+    return bestMatch;
+  }
+  
+  return null;
+}
+
 // Function to extract and aggregate activity table hours
 function extractActivityHours(sheetData: any[]): Record<string, number> {
   const aggregatedHours: Record<string, number> = {
@@ -231,14 +296,23 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       // Clean up the value - remove extra characters
       const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
       
+      // Try exact match first
       if (cellValue && rateTypeMapping[cellValue]) {
         rateType = cellValue;
         break;
       }
-      // Also try cleaned version for matches like "O/Rate" -> "O" or "ORATE"
+      // Try cleaned version for matches like "O/Rate" -> "O" or "ORATE"
       if (cleanedValue && rateTypeMapping[cleanedValue]) {
         rateType = cleanedValue;
         break;
+      }
+      // Try fuzzy matching as fallback if we have a non-empty value
+      if (cellValue && cellValue.length > 1) {
+        const fuzzyMatch = findBestRateTypeMatch(cellValue);
+        if (fuzzyMatch) {
+          rateType = fuzzyMatch;
+          break;
+        }
       }
     }
 
