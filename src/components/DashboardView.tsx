@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardData {
   date: string;
@@ -74,11 +76,89 @@ interface DashboardViewProps {
 
 const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [data, setData] = useState<DashboardData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   
   // Use selected date or default to current date
   const displayDate = selectedDate || new Date();
-  const dateStr = format(displayDate, "dd-MMM-yy");
-  const data = generateRigData(dateStr);
+  const dateStr = format(displayDate, "yyyy-MM-dd");
+
+  // Load data from database
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const { data: extractedData, error } = await supabase
+          .from('extracted_ddor_data')
+          .select('*')
+          .eq('date', dateStr);
+
+        if (error) throw error;
+
+        // Create a map of existing data by rig number
+        const dataMap = new Map(
+          (extractedData || []).map(item => [
+            item.rig_number,
+            {
+              date: format(new Date(item.date), "dd-MMM-yy"),
+              rig: item.rig_number,
+              client: item.client || "",
+              operationHr: Number(item.operation_hr) || 0,
+              reduceHr: Number(item.reduce_hr) || 0,
+              standbyHr: Number(item.standby_hr) || 0,
+              zeroHr: Number(item.zero_hr) || 0,
+              repairHr: Number(item.repair_hr) || 0,
+              amHr: Number(item.am_hr) || 0,
+              specialHr: Number(item.special_hr) || 0,
+              forceMajeureHr: Number(item.force_majeure_hr) || 0,
+              stackingHr: Number(item.stacking_hr) || 0,
+              rigMoveHr: Number(item.rig_move_hr) || 0,
+              notReceivedDDOR: item.not_received_ddor || "",
+              totalHrs: Number(item.total_hrs) || 0,
+              remarks: item.remarks || "",
+            }
+          ])
+        );
+
+        // Generate full list with all rigs, filling in blanks for missing data
+        const fullData = RIGS.map(rig => 
+          dataMap.get(rig) || {
+            date: format(displayDate, "dd-MMM-yy"),
+            rig: rig,
+            client: "",
+            operationHr: 0,
+            reduceHr: 0,
+            standbyHr: 0,
+            zeroHr: 0,
+            repairHr: 0,
+            amHr: 0,
+            specialHr: 0,
+            forceMajeureHr: 0,
+            stackingHr: 0,
+            rigMoveHr: 0,
+            notReceivedDDOR: "",
+            totalHrs: 0,
+            remarks: "",
+          }
+        );
+
+        setData(fullData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [dateStr]);
+
 
   const filteredData = data.filter(
     (row) =>
@@ -252,7 +332,12 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               </TableBody>
             </Table>
           </div>
-          {filteredData.length === 0 && (
+          {loading && (
+            <div className="py-12 text-center text-muted-foreground">
+              <p>Loading data...</p>
+            </div>
+          )}
+          {!loading && filteredData.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
               <p>No records found matching your search criteria.</p>
             </div>

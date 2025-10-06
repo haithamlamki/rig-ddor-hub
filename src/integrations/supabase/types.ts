@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      extracted_ddor_data: {
+        Row: {
+          am_hr: number | null
+          client: string | null
+          created_at: string
+          date: string
+          force_majeure_hr: number | null
+          id: string
+          not_received_ddor: string | null
+          operation_hr: number | null
+          reduce_hr: number | null
+          remarks: string | null
+          repair_hr: number | null
+          rig_move_hr: number | null
+          rig_number: string
+          special_hr: number | null
+          stacking_hr: number | null
+          standby_hr: number | null
+          total_hrs: number | null
+          updated_at: string
+          zero_hr: number | null
+        }
+        Insert: {
+          am_hr?: number | null
+          client?: string | null
+          created_at?: string
+          date: string
+          force_majeure_hr?: number | null
+          id?: string
+          not_received_ddor?: string | null
+          operation_hr?: number | null
+          reduce_hr?: number | null
+          remarks?: string | null
+          repair_hr?: number | null
+          rig_move_hr?: number | null
+          rig_number: string
+          special_hr?: number | null
+          stacking_hr?: number | null
+          standby_hr?: number | null
+          total_hrs?: number | null
+          updated_at?: string
+          zero_hr?: number | null
+        }
+        Update: {
+          am_hr?: number | null
+          client?: string | null
+          created_at?: string
+          date?: string
+          force_majeure_hr?: number | null
+          id?: string
+          not_received_ddor?: string | null
+          operation_hr?: number | null
+          reduce_hr?: number | null
+          remarks?: string | null
+          repair_hr?: number | null
+          rig_move_hr?: number | null
+          rig_number?: string
+          special_hr?: number | null
+          stacking_hr?: number | null
+          standby_hr?: number | null
+          total_hrs?: number | null
+          updated_at?: string
+          zero_hr?: number | null
+        }
+        Relationships: []
+      }
       rig_configs: {
         Row: {
           column_mappings: Json
