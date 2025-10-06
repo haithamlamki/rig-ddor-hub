@@ -1,4 +1,4 @@
-import { FileSpreadsheet, AlertTriangle, Settings } from "lucide-react";
+import { FileSpreadsheet, AlertTriangle, Settings, DollarSign } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -15,6 +15,7 @@ import {
 const items = [
   { title: "DDOR DataHub", url: "/ddor", icon: FileSpreadsheet },
   { title: "NPT Module", url: "/npt", icon: AlertTriangle },
+  { title: "Rate", url: "/rate", icon: DollarSign },
   { title: "Configuration", url: "/config", icon: Settings },
 ];
 

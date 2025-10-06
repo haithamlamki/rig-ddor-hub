@@ -107,6 +107,87 @@ export type Database = {
         }
         Relationships: []
       }
+      rig_rates: {
+        Row: {
+          annual_maintenance_hr_rate: number | null
+          created_at: string
+          force_majeure_hr_rate: number | null
+          fuel_operation_day_rate_usd: number | null
+          fuel_reduce_day_rate_usd: number | null
+          fuel_repair_day_rate_usd: number | null
+          fuel_special_day_rate_usd: number | null
+          fuel_zero_day_rate_usd: number | null
+          id: string
+          obm_operation_day_rate_usd: number | null
+          obm_reduce_day_rate_usd: number | null
+          obm_repair_day_rate_usd: number | null
+          obm_zero_day_rate_usd: number | null
+          operation_hr_rate: number | null
+          reduce_hr_rate: number | null
+          repair_hr_rate: number | null
+          rig_move_hr_rate: number | null
+          rig_move_times: number | null
+          rig_number: string
+          special_hr_rate: number | null
+          stacking_hr_rate: number | null
+          standby_hr_rate: number | null
+          updated_at: string
+          zero_hr_rate: number | null
+        }
+        Insert: {
+          annual_maintenance_hr_rate?: number | null
+          created_at?: string
+          force_majeure_hr_rate?: number | null
+          fuel_operation_day_rate_usd?: number | null
+          fuel_reduce_day_rate_usd?: number | null
+          fuel_repair_day_rate_usd?: number | null
+          fuel_special_day_rate_usd?: number | null
+          fuel_zero_day_rate_usd?: number | null
+          id?: string
+          obm_operation_day_rate_usd?: number | null
+          obm_reduce_day_rate_usd?: number | null
+          obm_repair_day_rate_usd?: number | null
+          obm_zero_day_rate_usd?: number | null
+          operation_hr_rate?: number | null
+          reduce_hr_rate?: number | null
+          repair_hr_rate?: number | null
+          rig_move_hr_rate?: number | null
+          rig_move_times?: number | null
+          rig_number: string
+          special_hr_rate?: number | null
+          stacking_hr_rate?: number | null
+          standby_hr_rate?: number | null
+          updated_at?: string
+          zero_hr_rate?: number | null
+        }
+        Update: {
+          annual_maintenance_hr_rate?: number | null
+          created_at?: string
+          force_majeure_hr_rate?: number | null
+          fuel_operation_day_rate_usd?: number | null
+          fuel_reduce_day_rate_usd?: number | null
+          fuel_repair_day_rate_usd?: number | null
+          fuel_special_day_rate_usd?: number | null
+          fuel_zero_day_rate_usd?: number | null
+          id?: string
+          obm_operation_day_rate_usd?: number | null
+          obm_reduce_day_rate_usd?: number | null
+          obm_repair_day_rate_usd?: number | null
+          obm_zero_day_rate_usd?: number | null
+          operation_hr_rate?: number | null
+          reduce_hr_rate?: number | null
+          repair_hr_rate?: number | null
+          rig_move_hr_rate?: number | null
+          rig_move_times?: number | null
+          rig_number?: string
+          special_hr_rate?: number | null
+          stacking_hr_rate?: number | null
+          standby_hr_rate?: number | null
+          updated_at?: string
+          zero_hr_rate?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

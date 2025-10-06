@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import DDORDataHub from "./pages/DDORDataHub";
 import NPTModule from "./pages/NPTModule";
+import RateModule from "./pages/RateModule";
 import ConfigModule from "./pages/ConfigModule";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/AppLayout";
@@ -23,6 +24,7 @@ const App = () => (
             <Route index element={<Index />} />
             <Route path="ddor" element={<DDORDataHub />} />
             <Route path="npt" element={<NPTModule />} />
+            <Route path="rate" element={<RateModule />} />
             <Route path="config" element={<ConfigModule />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
