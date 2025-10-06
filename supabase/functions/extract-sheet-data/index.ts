@@ -916,28 +916,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     console.log('Total hours calculated:', totalHrs);
     
-    // Validate and proportionally scale down if total exceeds 24
-    if (totalHrs > 24) {
-      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
-      const scaleFactor = 24 / totalHrs;
-      
-      // Scale down all hour categories proportionally
-      activityHours['Operation Hr'] *= scaleFactor;
-      activityHours['Reduce Hr'] *= scaleFactor;
-      activityHours['Standby Hr'] *= scaleFactor;
-      activityHours['Zero Hr'] *= scaleFactor;
-      activityHours['Repair Hr'] *= scaleFactor;
-      activityHours['AM Hr'] *= scaleFactor;
-      activityHours['Special Hr'] *= scaleFactor;
-      activityHours['Force Majeure Hr'] *= scaleFactor;
-      activityHours['STACKING Hr'] *= scaleFactor;
-      activityHours['Rig Move Hr'] *= scaleFactor;
-      
-      totalHrs = 24;
-      console.log('Hours scaled down proportionally to 24 total hours');
+    // Log warning if total doesn't equal 24, but don't scale
+    if (totalHrs !== 24 && totalHrs > 0) {
+      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) is not 24 hours. This will show a warning in the UI.`);
     }
 
-    // No cumulative addition - each upload replaces previous data
+    // Store actual hours without scaling
     finalHours = { ...activityHours };
     finalTotal = totalHrs;
 
