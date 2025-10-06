@@ -112,10 +112,34 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
       const data = await uploadedFile.file.arrayBuffer();
       const workbook = XLSX.read(data);
       
-      // Convert sheet to JSON with header row detection
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const sheetData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+      // Convert best sheet to JSON by scanning all sheets
+      let bestData: any[] = [];
+      let bestName = workbook.SheetNames[0] || '';
+      const timeLike = (v: any) => typeof v === 'string' && /\d{1,2}[:;]\d{2}/.test(v.trim());
+
+      for (const name of workbook.SheetNames) {
+        const ws = workbook.Sheets[name];
+        if (!ws) continue;
+        const data = XLSX.utils.sheet_to_json(ws, { defval: null, raw: false, blankrows: false });
+        // Heuristic: look for From/TO/Dur headers or rows with three time-like columns
+        const hasHeader = data.some((row: any) => {
+          const vals = Object.values(row || {}).map((x) => String(x ?? '').toUpperCase());
+          return vals.some((t) => t.includes('FROM')) && vals.some((t) => t === 'TO' || t.includes(' TO')) && vals.some((t) => t.includes('DUR'));
+        });
+        const hasTimeRow = data.some((row: any) => timeLike((row as any)['__EMPTY']) && timeLike((row as any)['__EMPTY_1']) && (timeLike((row as any)['__EMPTY_2']) || typeof (row as any)['__EMPTY_2'] === 'number'));
+        const score = (hasHeader ? 5 : 0) + (hasTimeRow ? 3 : 0) + Math.min(2, Math.floor((data.length || 0) / 50));
+        const bestScore = (bestData as any).__score || -1;
+        if (score > bestScore || (score === bestScore && data.length > bestData.length)) {
+          (data as any).__score = score;
+          bestData = data;
+          bestName = name;
+        }
+      }
+
+      const sheetData = bestData;
+      if (sheetData.length === 0) {
+        console.warn('No rows found in any sheet. Workbook sheets:', workbook.SheetNames);
+      }
 
       // Call AI edge function to extract data
       const { data: result, error: fnError } = await supabase.functions.invoke('extract-sheet-data', {
