@@ -32,6 +32,9 @@ const rateTypeMapping: Record<string, string> = {
   'R/RATE': 'Reduce Hr',
   'REDUCED': 'Reduce Hr',
   'REDUCTION': 'Reduce Hr',
+  'REDUCED-RATE': 'Reduce Hr',
+  'REDUCED-RATE.': 'Reduce Hr',
+  'REDUCED RATE': 'Reduce Hr',
   
   // Standby Hr synonyms
   'STANDBY': 'Standby Hr',
