@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Save, Trash2, Settings2 } from "lucide-react";
+import { Save, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,20 +11,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface ColumnMapping {
+  columnName: string;
+  cellReference: string;
+}
 
 interface RigConfig {
   rigNumber: string;
   sheetName: string;
-  dateColumn: string;
-  depthColumn: string;
-  operationColumn: string;
-  dataStartRow: string;
-  dataEndRow: string;
-  notes: string;
+  columnMappings: ColumnMapping[];
 }
+
+const COLUMNS = [
+  "Date",
+  "Rig",
+  "Client",
+  "Operation Hr",
+  "Reduce Hr",
+  "Standby Hr",
+  "Zero Hr",
+  "Repair Hr",
+  "AM Hr",
+  "Special Hr",
+  "Force Majeure Hr",
+  "STACKING Hr",
+  "Rig Move Hr",
+  "Not Received DDOR",
+  "Total Hr.s",
+  "Remarks"
+];
 
 const RIGS = [
   "103", "104", "105", "106", "107", "108", "109", "110", "111", "112",
@@ -33,23 +58,16 @@ const RIGS = [
   "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
 
-const DEFAULT_CONFIG: Omit<RigConfig, 'rigNumber'> = {
-  sheetName: "DAILY DRILLING REPORT",
-  dateColumn: "B11",
-  depthColumn: "H11",
-  operationColumn: "A54:K100",
-  dataStartRow: "54",
-  dataEndRow: "100",
-  notes: "",
-};
+const DEFAULT_MAPPINGS: ColumnMapping[] = COLUMNS.map(col => ({
+  columnName: col,
+  cellReference: ""
+}));
 
-// Generate configs for all rigs
 const generateAllConfigs = (): RigConfig[] => {
   return RIGS.map(rig => ({
     rigNumber: rig,
-    ...DEFAULT_CONFIG,
-    notes: rig === "211" ? "Standard WJO configuration with motor BHA details" :
-           rig === "206" ? "Oxy configuration with RSS BHA setup" : "",
+    sheetName: "DAILY DRILLING REPORT",
+    columnMappings: DEFAULT_MAPPINGS.map(m => ({ ...m }))
   }));
 };
 
@@ -60,10 +78,25 @@ const ConfigView = () => {
 
   const currentConfig = configs.find((c) => c.rigNumber === selectedRig);
 
-  const handleConfigUpdate = (field: keyof RigConfig, value: string) => {
+  const handleSheetNameUpdate = (value: string) => {
     setConfigs((prev) =>
       prev.map((config) =>
-        config.rigNumber === selectedRig ? { ...config, [field]: value } : config
+        config.rigNumber === selectedRig ? { ...config, sheetName: value } : config
+      )
+    );
+  };
+
+  const handleMappingUpdate = (columnName: string, cellReference: string) => {
+    setConfigs((prev) =>
+      prev.map((config) =>
+        config.rigNumber === selectedRig
+          ? {
+              ...config,
+              columnMappings: config.columnMappings.map((m) =>
+                m.columnName === columnName ? { ...m, cellReference } : m
+              ),
+            }
+          : config
       )
     );
   };
@@ -83,7 +116,11 @@ const ConfigView = () => {
     setConfigs((prev) =>
       prev.map((c) =>
         c.rigNumber === selectedRig
-          ? { ...c, ...DEFAULT_CONFIG }
+          ? {
+              rigNumber: c.rigNumber,
+              sheetName: "DAILY DRILLING REPORT",
+              columnMappings: DEFAULT_MAPPINGS.map(m => ({ ...m }))
+            }
           : c
       )
     );
@@ -151,11 +188,10 @@ const ConfigView = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Rig {selectedRig} Configuration</CardTitle>
-                <CardDescription>Define data extraction rules and mappings</CardDescription>
+                <CardDescription>Define column mappings for data extraction</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleResetConfig} variant="outline" size="sm" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
                   Reset
                 </Button>
                 <Button onClick={handleSaveConfig} size="sm" className="gap-2">
@@ -165,110 +201,54 @@ const ConfigView = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             {currentConfig ? (
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="basic">Basic Settings</TabsTrigger>
-                  <TabsTrigger value="advanced">Advanced Mapping</TabsTrigger>
-                </TabsList>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="sheetName">Excel Sheet Name</Label>
+                  <Input
+                    id="sheetName"
+                    value={currentConfig.sheetName}
+                    onChange={(e) => handleSheetNameUpdate(e.target.value)}
+                    placeholder="e.g., DAILY DRILLING REPORT"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The name of the worksheet to extract data from
+                  </p>
+                </div>
 
-                <TabsContent value="basic" className="space-y-6 pt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="sheetName">Excel Sheet Name</Label>
-                    <Input
-                      id="sheetName"
-                      value={currentConfig.sheetName}
-                      onChange={(e) => handleConfigUpdate("sheetName", e.target.value)}
-                      placeholder="e.g., DAILY DRILLING REPORT"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      The name of the worksheet to extract data from
-                    </p>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">Column Mappings</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Specify the Excel cell reference for each column
+                  </p>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-primary/90">
+                          <TableHead className="font-semibold text-primary-foreground w-1/3">Column Name</TableHead>
+                          <TableHead className="font-semibold text-primary-foreground">Cell Reference</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {currentConfig.columnMappings.map((mapping) => (
+                          <TableRow key={mapping.columnName}>
+                            <TableCell className="font-medium">{mapping.columnName}</TableCell>
+                            <TableCell>
+                              <Input
+                                value={mapping.cellReference}
+                                onChange={(e) => handleMappingUpdate(mapping.columnName, e.target.value)}
+                                placeholder="e.g., B11, A54:K100"
+                                className="max-w-xs"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="dateColumn">Date Cell</Label>
-                      <Input
-                        id="dateColumn"
-                        value={currentConfig.dateColumn}
-                        onChange={(e) => handleConfigUpdate("dateColumn", e.target.value)}
-                        placeholder="e.g., B11"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="depthColumn">Depth Cell</Label>
-                      <Input
-                        id="depthColumn"
-                        value={currentConfig.depthColumn}
-                        onChange={(e) => handleConfigUpdate("depthColumn", e.target.value)}
-                        placeholder="e.g., H11"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Configuration Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={currentConfig.notes}
-                      onChange={(e) => handleConfigUpdate("notes", e.target.value)}
-                      placeholder="Add notes about this rig's configuration..."
-                      rows={4}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="advanced" className="space-y-6 pt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="operationColumn">Operations Data Range</Label>
-                    <Input
-                      id="operationColumn"
-                      value={currentConfig.operationColumn}
-                      onChange={(e) => handleConfigUpdate("operationColumn", e.target.value)}
-                      placeholder="e.g., A54:K100"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Cell range containing daily operations table
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="dataStartRow">Data Start Row</Label>
-                      <Input
-                        id="dataStartRow"
-                        value={currentConfig.dataStartRow}
-                        onChange={(e) => handleConfigUpdate("dataStartRow", e.target.value)}
-                        placeholder="e.g., 54"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dataEndRow">Data End Row</Label>
-                      <Input
-                        id="dataEndRow"
-                        value={currentConfig.dataEndRow}
-                        onChange={(e) => handleConfigUpdate("dataEndRow", e.target.value)}
-                        placeholder="e.g., 100"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-muted p-4">
-                    <h4 className="text-sm font-semibold text-foreground mb-2">Extraction Preview</h4>
-                    <div className="space-y-1 text-sm text-muted-foreground font-mono">
-                      <p>Sheet: {currentConfig.sheetName}</p>
-                      <p>Date from: {currentConfig.dateColumn}</p>
-                      <p>Depth from: {currentConfig.depthColumn}</p>
-                      <p>Operations: {currentConfig.operationColumn}</p>
-                      <p>Rows: {currentConfig.dataStartRow} to {currentConfig.dataEndRow}</p>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                </div>
+              </>
             ) : (
               <div className="py-12 text-center text-muted-foreground">
                 <p>No rig configuration selected</p>
