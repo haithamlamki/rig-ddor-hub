@@ -204,6 +204,72 @@ function extractHoistTotalAmount(sheetData: any[]): number {
   return totalAmount;
 }
 
+function extractHoistDailyTotals(sheetData: any[]): Record<string, number> {
+  console.log('Extracting daily totals for Hoist rig from billing sheet...');
+  const totals: Record<string, number> = {};
+
+  const toISODate = (val: unknown): string | null => {
+    try {
+      if (typeof val === 'number' || (typeof val === 'string' && /^\d+$/.test(val as string))) {
+        const serial = typeof val === 'number' ? val : parseInt(val as string, 10);
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(excelEpoch.getTime() + serial * 86400000);
+        return date.toISOString().slice(0, 10);
+      }
+      const d = new Date(String(val));
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    } catch (_) {}
+    return null;
+  };
+
+  const getDateFromRow = (row: any): string | null => {
+    if (!row || typeof row !== 'object') return null;
+    for (const [key, value] of Object.entries(row)) {
+      if (!value) continue;
+      const keyStr = String(key).toLowerCase();
+      if (keyStr.includes('date')) {
+        const iso = toISODate(value);
+        if (iso) return iso;
+      }
+    }
+    // Fallback: try any value that parses as a date
+    for (const value of Object.values(row)) {
+      const iso = toISODate(value as any);
+      if (iso) return iso;
+    }
+    return null;
+  };
+
+  for (const row of sheetData) {
+    if (!row || typeof row !== 'object') continue;
+
+    // Find amount in row
+    let amountInRow = 0;
+    for (const value of Object.values(row)) {
+      if (!value) continue;
+      const amountStr = String(value).trim();
+      const match = amountStr.match(/\$?\s*([\d,]+\.?\d*)/);
+      if (match) {
+        const num = parseFloat(match[1].replace(/,/g, ''));
+        if (!isNaN(num) && num > 1) {
+          amountInRow = num;
+          break;
+        }
+      }
+    }
+    if (amountInRow <= 0) continue;
+
+    const iso = getDateFromRow(row);
+    if (!iso) continue;
+
+    totals[iso] = (totals[iso] || 0) + amountInRow;
+    console.log(`Hoist daily total add for ${iso}: +$${amountInRow.toFixed(2)} (sum: $${totals[iso].toFixed(2)})`);
+  }
+
+  console.log('Hoist daily totals:', totals);
+  return totals;
+}
+
 // Function to extract and aggregate activity table hours
 function extractActivityHours(sheetData: any[]): Record<string, number> {
   const aggregatedHours: Record<string, number> = {
@@ -603,13 +669,15 @@ serve(async (req) => {
     // Check if this is a Hoist rig (Hoist 1, Hoist 2, etc.)
     const isHoistRig = String(rig).toLowerCase().includes('hoist');
     
+    let hoistDailyTotals: Record<string, number> = {};
     let hoistTotalAmount = 0;
     let activityHours: Record<string, number> = {};
     
     if (isHoistRig) {
-      // For Hoist rigs, extract total billing amount instead of hours
-      console.log('Detected Hoist rig - extracting total billing amount...');
-      hoistTotalAmount = extractHoistTotalAmount(sheetData);
+      // For Hoist rigs, extract daily totals across ALL dates in the sheet
+      console.log('Detected Hoist rig - extracting daily billing totals...');
+      hoistDailyTotals = extractHoistDailyTotals(sheetData);
+      hoistTotalAmount = Object.values(hoistDailyTotals).reduce((a, b) => a + b, 0);
     } else {
       // For regular rigs, extract activity table hours
       console.log('Extracting activity table hours...');
@@ -871,6 +939,41 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       if (taskDescriptions && taskDescriptions.length > 0) {
         finalRemarks = taskDescriptions.join(', ');
       }
+    }
+
+    if (isHoistRig) {
+      console.log('Upserting Hoist daily totals for rig:', rig, hoistDailyTotals);
+      for (const [dateIso, amount] of Object.entries(hoistDailyTotals)) {
+        const { error: upsertErr } = await supabase
+          .from('extracted_ddor_data')
+          .upsert({
+            rig_number: rig,
+            date: dateIso,
+            client: extractedData.extractedData?.Client || '',
+            operation_hr: 0,
+            reduce_hr: 0,
+            standby_hr: 0,
+            zero_hr: 0,
+            repair_hr: 0,
+            am_hr: 0,
+            special_hr: 0,
+            force_majeure_hr: 0,
+            stacking_hr: 0,
+            rig_move_hr: 0,
+            not_received_ddor: amount > 0 ? '' : '1',
+            total_hrs: 0,
+            total_amount: amount,
+            remarks: ''
+          }, { onConflict: 'rig_number,date', ignoreDuplicates: false });
+        if (upsertErr) {
+          console.error('Error upserting Hoist daily total for', dateIso, upsertErr);
+          throw upsertErr;
+        }
+      }
+      return new Response(
+        JSON.stringify({ success: true, data: extractedData, totals: hoistDailyTotals }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Use upsert to update existing record or insert new one
