@@ -108,69 +108,74 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="space-y-3">
         {RIGS.map((rig) => {
           const rigFiles = uploadedFiles.filter((f) => f.rig === rig);
           const successCount = rigFiles.filter((f) => f.status === "success").length;
           
           return (
-            <Card key={rig} className="shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Rig {rig}</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onConfigClick(rig)}
-                    className="h-8 w-8"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors">
-                  <input
-                    type="file"
-                    id={`file-upload-${rig}`}
-                    multiple
-                    accept=".xlsx,.xls"
-                    onChange={(e) => handleFileUpload(rig, e)}
-                    className="hidden"
-                  />
-                  <label htmlFor={`file-upload-${rig}`} className="cursor-pointer">
-                    <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-xs font-medium text-foreground mb-1">
-                      Drop files here
-                    </p>
-                    <p className="text-xs text-muted-foreground">or click to browse</p>
-                  </label>
-                </div>
+            <Card key={rig} className="shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 w-32 flex-shrink-0">
+                    <CardTitle className="text-base">Rig {rig}</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onConfigClick(rig)}
+                      className="h-7 w-7"
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                {rigFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{rigFiles.length} file(s)</span>
-                      <span>{successCount} processed</span>
-                    </div>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {rigFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between text-xs bg-muted/50 rounded p-2"
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <FileSpreadsheet className="h-3 w-3 text-primary flex-shrink-0" />
-                            <span className="truncate">{file.file.name}</span>
-                          </div>
-                          <div className="flex-shrink-0 ml-2">
-                            {getStatusIcon(file.status)}
-                          </div>
+                  <div className="flex-1">
+                    <div className="border-2 border-dashed border-border rounded-lg px-6 py-3 text-center hover:border-primary transition-colors">
+                      <input
+                        type="file"
+                        id={`file-upload-${rig}`}
+                        multiple
+                        accept=".xlsx,.xls"
+                        onChange={(e) => handleFileUpload(rig, e)}
+                        className="hidden"
+                      />
+                      <label htmlFor={`file-upload-${rig}`} className="cursor-pointer flex items-center justify-center gap-3">
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Drop files here
+                          </p>
+                          <p className="text-xs text-muted-foreground">or click to browse</p>
                         </div>
-                      ))}
+                      </label>
                     </div>
                   </div>
-                )}
+
+                  {rigFiles.length > 0 && (
+                    <div className="w-64 flex-shrink-0">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                        <span>{rigFiles.length} file(s)</span>
+                        <span>{successCount} processed</span>
+                      </div>
+                      <div className="space-y-1 max-h-20 overflow-y-auto">
+                        {rigFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between text-xs bg-muted/50 rounded p-1.5"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <FileSpreadsheet className="h-3 w-3 text-primary flex-shrink-0" />
+                              <span className="truncate">{file.file.name}</span>
+                            </div>
+                            <div className="flex-shrink-0 ml-2">
+                              {getStatusIcon(file.status)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
