@@ -755,6 +755,32 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
     let finalHours = { ...activityHours };
     let finalTotal = totalHrs;
 
+    // Filter remarks if only Zero Hr and Repair Hr have values
+    let finalRemarks = extractedData.extractedData?.Remarks || '';
+    
+    // Check if only Zero Hr and Repair Hr have non-zero values
+    const hasOnlyZeroAndRepair = 
+      finalHours['Zero Hr'] > 0 &&
+      finalHours['Repair Hr'] > 0 &&
+      finalHours['Operation Hr'] === 0 &&
+      finalHours['Reduce Hr'] === 0 &&
+      finalHours['Standby Hr'] === 0 &&
+      finalHours['AM Hr'] === 0 &&
+      finalHours['Special Hr'] === 0 &&
+      finalHours['Force Majeure Hr'] === 0 &&
+      finalHours['STACKING Hr'] === 0 &&
+      finalHours['Rig Move Hr'] === 0;
+    
+    // Filter remarks to show only task descriptions (time range + operation)
+    if (hasOnlyZeroAndRepair && finalRemarks) {
+      // Extract only lines that match time patterns (e.g., "00:00 - 00:00 OPERATION")
+      const timePattern = /\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}\s+[A-Z\s]+/gi;
+      const taskDescriptions = finalRemarks.match(timePattern);
+      if (taskDescriptions && taskDescriptions.length > 0) {
+        finalRemarks = taskDescriptions.join(', ');
+      }
+    }
+
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
@@ -774,7 +800,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         rig_move_hr: finalHours['Rig Move Hr'],
         not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
         total_hrs: finalTotal,
-        remarks: extractedData.extractedData?.Remarks || ''
+        remarks: finalRemarks
       }, {
         onConflict: 'rig_number,date',
         ignoreDuplicates: false
