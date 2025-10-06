@@ -34,6 +34,8 @@ interface DashboardData {
   notReceivedDDOR: string;
   totalHrs: number;
   remarks: string;
+  totalAmount: number;
+  totalFuelAmount: number;
 }
 
 const RIGS = [
@@ -65,6 +67,8 @@ const generateRigData = (dateStr: string): DashboardData[] => {
       notReceivedDDOR: "",
       totalHrs: 0,
       remarks: "",
+      totalAmount: 0,
+      totalFuelAmount: 0,
     });
   }
   
@@ -115,6 +119,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
 
         if (configError) throw configError;
 
+        // Load rig rates
+        const { data: rigRates, error: ratesError } = await supabase
+          .from('rig_rates')
+          .select('*');
+
+        if (ratesError) throw ratesError;
+
+        // Create a map of rig rates
+        const ratesMap = new Map(
+          (rigRates || []).map(rate => [rate.rig_number, rate])
+        );
+
         // Create a map of existing data by rig number
         const dataMap = new Map(
           (extractedData || []).map(item => {
@@ -131,6 +147,32 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             
             const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
                            amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+            
+            // Get rates for this rig
+            const rates = ratesMap.get(item.rig_number);
+            
+            // Calculate total amount (hours * hourly rates)
+            const totalAmount = rates ? (
+              (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+              (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+              (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+              (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+              (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+              (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+              (specialHr * (Number(rates.special_hr_rate) || 0)) +
+              (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+              (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0))
+            ) : 0;
+            
+            // Calculate total fuel amount (hours/24 * daily fuel rates)
+            const totalFuelAmount = rates ? (
+              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+            ) : 0;
             
             return [
               item.rig_number,
@@ -151,6 +193,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                 notReceivedDDOR: item.not_received_ddor || "",
                 totalHrs,
                 remarks: item.remarks || "",
+                totalAmount,
+                totalFuelAmount,
               }
             ];
           })
@@ -192,6 +236,32 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
                          amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
 
+          // Get rates for this rig
+          const rates = ratesMap.get(rig);
+          
+          // Calculate total amount (hours * hourly rates)
+          const totalAmount = rates ? (
+            (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+            (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+            (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+            (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+            (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+            (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+            (specialHr * (Number(rates.special_hr_rate) || 0)) +
+            (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+            (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+            (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0))
+          ) : 0;
+          
+          // Calculate total fuel amount (hours/24 * daily fuel rates)
+          const totalFuelAmount = rates ? (
+            ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+            ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+            ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+            ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+            ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+          ) : 0;
+
           return {
             date: format(displayDate, "dd-MMM-yy"),
             rig: getFixedValue("Rig") || rig,
@@ -209,6 +279,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
             totalHrs,
             remarks: getFixedValue("Remarks"),
+            totalAmount,
+            totalFuelAmount,
           };
         });
 
@@ -251,7 +323,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
 
   const handleExport = () => {
     const csvContent = [
-      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Remarks"],
+      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Remarks", "Total Amount", "Total Fuel Amount"],
       ...filteredData.map((row) => [
         row.date,
         row.rig,
@@ -269,6 +341,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         row.notReceivedDDOR,
         row.totalHrs,
         row.remarks,
+        row.totalAmount.toFixed(2),
+        row.totalFuelAmount.toFixed(2),
       ]),
     ]
       .map((row) => row.join(","))
@@ -495,6 +569,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   <TableHead className="font-semibold text-right text-primary-foreground">Not Received DDOR</TableHead>
                   <TableHead className="font-semibold text-right text-primary-foreground">Total Hr.s</TableHead>
                   <TableHead className="font-semibold text-primary-foreground">Remarks</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Total Amount</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Total Fuel</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -529,6 +605,12 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                     </TableCell>
                     <TableCell className="max-w-md truncate" title={row.remarks}>
                       {row.remarks}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-green-600 dark:text-green-500">
+                      ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-500">
+                      ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}
