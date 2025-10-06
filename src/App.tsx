@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import DDORDataHub from "./pages/DDORDataHub";
+import NPTModule from "./pages/NPTModule";
+import ConfigModule from "./pages/ConfigModule";
 import NotFound from "./pages/NotFound";
+import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
 
@@ -16,8 +19,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/ddor" element={<DDORDataHub />} />
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<Index />} />
+            <Route path="ddor" element={<DDORDataHub />} />
+            <Route path="npt" element={<NPTModule />} />
+            <Route path="config" element={<ConfigModule />} />
+          </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
