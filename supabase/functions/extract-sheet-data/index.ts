@@ -216,8 +216,8 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
 
-    // Check if this is a data row by looking at __EMPTY (From column)
-    const fromValue = (row as any)['__EMPTY'];
+    // Check if this is a data row by looking at From column (supports headered and non-headered JSON)
+    const fromValue = (row as any)['__EMPTY'] ?? (row as any)['From'] ?? (row as any)['FROM'] ?? (row as any)['from'];
     if (fromValue === null || fromValue === undefined) continue;
     
     // Skip section headers and empty rows
@@ -263,8 +263,8 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       break;
     }
 
-    // Column __EMPTY_2 = Duration (Dur.)
-    const durationValue = (row as any)['__EMPTY_2'];
+    // Column __EMPTY_2 = Duration (Dur.) (supports headered and non-headered JSON)
+    const durationValue = (row as any)['__EMPTY_2'] ?? (row as any)['Dur.'] ?? (row as any)['Dur'] ?? (row as any)['DUR'];
     let hours = 0;
 
     // Parse duration
@@ -291,30 +291,33 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
     if (hours === 0) continue;
 
-    // Look for rate type in ALL columns from right to left
+    // Look for rate type across known columns first, then all string cells in the row
     let rateType = '';
     for (let colIdx = 12; colIdx >= 3; colIdx--) {
       const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
-      const cellValue = String((row as any)[colName] || '').trim().toUpperCase();
-      // Clean up the value - remove extra characters
+      const rawVal = (row as any)[colName];
+      const cellValue = String(rawVal ?? '').trim().toUpperCase();
+      if (!cellValue) continue;
       const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
-      
-      // Try exact match first
-      if (cellValue && rateTypeMapping[cellValue]) {
-        rateType = cellValue;
-        break;
-      }
-      // Try cleaned version for matches like "O/Rate" -> "O" or "ORATE"
-      if (cleanedValue && rateTypeMapping[cleanedValue]) {
-        rateType = cleanedValue;
-        break;
-      }
-      // Try fuzzy matching as fallback if we have a non-empty value
-      if (cellValue && cellValue.length > 1) {
+      if (rateTypeMapping[cellValue]) { rateType = cellValue; break; }
+      if (rateTypeMapping[cleanedValue]) { rateType = cleanedValue; break; }
+      if (cellValue.length > 1) {
         const fuzzyMatch = findBestRateTypeMatch(cellValue);
-        if (fuzzyMatch) {
-          rateType = fuzzyMatch;
-          break;
+        if (fuzzyMatch) { rateType = fuzzyMatch; break; }
+      }
+    }
+    // Fallback: scan all values in the row (supports headered JSON with 'Rate' column)
+    if (!rateType) {
+      for (const [k, v] of Object.entries(row)) {
+        if (v == null) continue;
+        const valStr = String(v).trim().toUpperCase();
+        if (!valStr || valStr === String(fromValue).toUpperCase() || valStr === String(durationValue).toUpperCase()) continue;
+        const cleaned = valStr.replace(/[\/\-\s]/g, '').replace('RATE', '');
+        if (rateTypeMapping[valStr]) { rateType = valStr; break; }
+        if (rateTypeMapping[cleaned]) { rateType = cleaned; break; }
+        if (valStr.length > 1) {
+          const fuzzy = findBestRateTypeMatch(valStr);
+          if (fuzzy) { rateType = fuzzy; break; }
         }
       }
     }
