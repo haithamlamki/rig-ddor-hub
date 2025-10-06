@@ -151,7 +151,16 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             // Get rates for this rig
             const rates = ratesMap.get(item.rig_number);
             
-            // Calculate total amount (hours * hourly rates)
+            // Calculate total fuel amount (hours/24 * daily fuel rates)
+            const totalFuelAmount = rates ? (
+              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+            ) : 0;
+            
+            // Calculate total amount (hours * hourly rates + fuel amount)
             const totalAmount = rates ? (
               (operationHr * (Number(rates.operation_hr_rate) || 0)) +
               (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
@@ -162,16 +171,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               (specialHr * (Number(rates.special_hr_rate) || 0)) +
               (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
               (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
-              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0))
-            ) : 0;
-            
-            // Calculate total fuel amount (hours/24 * daily fuel rates)
-            const totalFuelAmount = rates ? (
-              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
-              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
-              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
-              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
-              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
+              totalFuelAmount
             ) : 0;
             
             return [
