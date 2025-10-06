@@ -566,49 +566,49 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-primary/90">
-                  <TableHead className="font-semibold text-primary-foreground">Date</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Rig</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Client</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Operation Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Reduce Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Standby Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Zero Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Repair Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">AM Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Special Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Force Majeure Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">STACKING Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Rig Move Hr</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Not Received DDOR</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Total Hr.s</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Total Fuel</TableHead>
-                  <TableHead className="font-semibold text-right text-primary-foreground">Total Amount</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Remarks</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Date</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Rig</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Client</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Operation Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Reduce Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Standby Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Zero Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Repair Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">AM Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Special Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Force Majeure Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">STACKING Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Rig Move Hr</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Not Received DDOR</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Total Hr.s</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Total Fuel</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Total Amount</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.map((row, index) => (
                   <TableRow key={index} className="hover:bg-muted/30">
-                    <TableCell className="font-medium whitespace-nowrap">{row.date}</TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="font-medium whitespace-nowrap text-center">{row.date}</TableCell>
+                    <TableCell className="whitespace-nowrap text-center">
                       <Badge variant="outline" className="font-mono">
                         {row.rig}
                       </Badge>
                     </TableCell>
-                    <TableCell>{row.client}</TableCell>
-                    <TableCell className="text-right">{row.operationHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.reduceHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.standbyHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.zeroHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.repairHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.amHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.specialHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.forceMajeureHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.stackingHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.rigMoveHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.notReceivedDDOR}</TableCell>
+                    <TableCell className="text-center">{row.client}</TableCell>
+                    <TableCell className="text-center">{row.operationHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.reduceHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.standbyHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.zeroHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.repairHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.amHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.specialHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.forceMajeureHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.stackingHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.rigMoveHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">{row.notReceivedDDOR}</TableCell>
                     <TableCell className={cn(
-                      "text-right font-semibold",
+                      "text-center font-semibold",
                       row.totalHrs > 24 && "text-destructive"
                     )}>
                       {row.totalHrs.toFixed(2)}
@@ -616,13 +616,13 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         <span className="ml-1 text-xs">⚠️</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-500">
+                    <TableCell className="text-center font-semibold text-blue-600 dark:text-blue-500">
                       ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-green-600 dark:text-green-500">
+                    <TableCell className="text-center font-semibold text-green-600 dark:text-green-500">
                       ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell className="max-w-md truncate" title={row.remarks}>
+                    <TableCell className="max-w-md truncate text-center" title={row.remarks}>
                       {row.remarks}
                     </TableCell>
                   </TableRow>
