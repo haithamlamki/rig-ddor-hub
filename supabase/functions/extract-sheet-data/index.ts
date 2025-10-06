@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sheetData, rig } = await req.json();
+    const { sheetData, rig, fileDate } = await req.json();
     
     console.log(`Processing sheet data for rig ${rig}...`);
 
@@ -150,25 +150,44 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       throw new Error("Failed to parse AI response");
     }
 
-    // Store extracted data in database
+    // Prepare and store extracted data in database
+    const toISODate = (val: unknown): string => {
+      // Prefer user-provided date from the uploader if available
+      if (fileDate && typeof fileDate === 'string') return fileDate;
+      try {
+        if (typeof val === 'number' || (typeof val === 'string' && /^\d+$/.test(val as string))) {
+          const serial = typeof val === 'number' ? val : parseInt(val as string, 10);
+          // Excel serial date: days since 1899-12-30
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          const date = new Date(excelEpoch.getTime() + serial * 86400000);
+          return date.toISOString().slice(0, 10);
+        }
+        const d = new Date(String(val));
+        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      } catch (_) { /* ignore */ }
+      return new Date().toISOString().slice(0, 10);
+    };
+
+    const dateStr = toISODate(extractedData.extractedData?.Date);
+
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
       .insert({
         rig_number: rig,
-        date: extractedData.extractedData?.Date || new Date().toISOString().split('T')[0],
+        date: dateStr,
         client: extractedData.extractedData?.Client || '',
-        operation_hr: extractedData.extractedData?.['Operation Hr'] || 0,
-        reduce_hr: extractedData.extractedData?.['Reduce Hr'] || 0,
-        standby_hr: extractedData.extractedData?.['Standby Hr'] || 0,
-        zero_hr: extractedData.extractedData?.['Zero Hr'] || 0,
-        repair_hr: extractedData.extractedData?.['Repair Hr'] || 0,
-        am_hr: extractedData.extractedData?.['AM Hr'] || 0,
-        special_hr: extractedData.extractedData?.['Special Hr'] || 0,
-        force_majeure_hr: extractedData.extractedData?.['Force Majeure Hr'] || 0,
-        stacking_hr: extractedData.extractedData?.['STACKING Hr'] || 0,
-        rig_move_hr: extractedData.extractedData?.['Rig Move Hr'] || 0,
+        operation_hr: Number(extractedData.extractedData?.['Operation Hr']) || 0,
+        reduce_hr: Number(extractedData.extractedData?.['Reduce Hr']) || 0,
+        standby_hr: Number(extractedData.extractedData?.['Standby Hr']) || 0,
+        zero_hr: Number(extractedData.extractedData?.['Zero Hr']) || 0,
+        repair_hr: Number(extractedData.extractedData?.['Repair Hr']) || 0,
+        am_hr: Number(extractedData.extractedData?.['AM Hr']) || 0,
+        special_hr: Number(extractedData.extractedData?.['Special Hr']) || 0,
+        force_majeure_hr: Number(extractedData.extractedData?.['Force Majeure Hr']) || 0,
+        stacking_hr: Number(extractedData.extractedData?.['STACKING Hr']) || 0,
+        rig_move_hr: Number(extractedData.extractedData?.['Rig Move Hr']) || 0,
         not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
-        total_hrs: extractedData.extractedData?.['Total Hr.s'] || 0,
+        total_hrs: Number(extractedData.extractedData?.['Total Hr.s']) || 0,
         remarks: extractedData.extractedData?.Remarks || ''
       });
 

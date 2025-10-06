@@ -73,6 +73,7 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
         body: {
           sheetData,
           rig: uploadedFile.rig,
+          fileDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined,
         },
       });
 
