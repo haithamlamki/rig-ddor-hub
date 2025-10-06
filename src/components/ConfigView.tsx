@@ -26,6 +26,7 @@ interface ColumnMapping {
   columnName: string;
   cellReference: string;
   isFixedData: boolean;
+  fixedValue: string;
 }
 
 interface RigConfig {
@@ -63,7 +64,8 @@ const RIGS = [
 const DEFAULT_MAPPINGS: ColumnMapping[] = COLUMNS.map(col => ({
   columnName: col,
   cellReference: "",
-  isFixedData: false
+  isFixedData: false,
+  fixedValue: ""
 }));
 
 const generateAllConfigs = (): RigConfig[] => {
@@ -112,6 +114,21 @@ const ConfigView = () => {
               ...config,
               columnMappings: config.columnMappings.map((m) =>
                 m.columnName === columnName ? { ...m, isFixedData: isChecked } : m
+              ),
+            }
+          : config
+      )
+    );
+  };
+
+  const handleFixedValueUpdate = (columnName: string, fixedValue: string) => {
+    setConfigs((prev) =>
+      prev.map((config) =>
+        config.rigNumber === selectedRig
+          ? {
+              ...config,
+              columnMappings: config.columnMappings.map((m) =>
+                m.columnName === columnName ? { ...m, fixedValue } : m
               ),
             }
           : config
@@ -254,20 +271,31 @@ const ConfigView = () => {
                           <TableRow key={mapping.columnName}>
                             <TableCell className="font-medium">{mapping.columnName}</TableCell>
                             <TableCell>
-                              <Input
-                                value={mapping.cellReference}
-                                onChange={(e) => handleMappingUpdate(mapping.columnName, e.target.value)}
-                                placeholder="e.g., B11, A54:K100"
-                                className="max-w-xs"
-                              />
+                              {mapping.isFixedData ? (
+                                <Input
+                                  value={mapping.fixedValue}
+                                  onChange={(e) => handleFixedValueUpdate(mapping.columnName, e.target.value)}
+                                  placeholder="Enter fixed value"
+                                  className="max-w-xs"
+                                />
+                              ) : (
+                                <Input
+                                  value={mapping.cellReference}
+                                  onChange={(e) => handleMappingUpdate(mapping.columnName, e.target.value)}
+                                  placeholder="e.g., B11, A54:K100"
+                                  className="max-w-xs"
+                                />
+                              )}
                             </TableCell>
                             <TableCell className="text-center">
-                              <Checkbox
-                                checked={mapping.isFixedData}
-                                onCheckedChange={(checked) => 
-                                  handleFixedDataToggle(mapping.columnName, checked === true)
-                                }
-                              />
+                              <div className="flex items-center justify-center">
+                                <Checkbox
+                                  checked={mapping.isFixedData}
+                                  onCheckedChange={(checked) => 
+                                    handleFixedDataToggle(mapping.columnName, checked === true)
+                                  }
+                                />
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
