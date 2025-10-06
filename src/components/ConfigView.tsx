@@ -26,32 +26,36 @@ interface RigConfig {
   notes: string;
 }
 
-const DEFAULT_CONFIGS: RigConfig[] = [
-  {
-    rigNumber: "211",
-    sheetName: "DAILY DRILLING REPORT",
-    dateColumn: "B11",
-    depthColumn: "H11",
-    operationColumn: "A54:K100",
-    dataStartRow: "54",
-    dataEndRow: "100",
-    notes: "Standard WJO configuration with motor BHA details",
-  },
-  {
-    rigNumber: "206",
-    sheetName: "DAILY DRILLING REPORT",
-    dateColumn: "B11",
-    depthColumn: "H11",
-    operationColumn: "A63:K100",
-    dataStartRow: "63",
-    dataEndRow: "100",
-    notes: "Oxy configuration with RSS BHA setup",
-  },
+const RIGS = [
+  "103", "104", "105", "106", "107", "108", "109", "110", "111", "112",
+  "201", "202", "203", "204", "205", "206", "207", "208", "209", "210", "211",
+  "301", "302", "303", "304", "305", "306",
+  "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
 
+const DEFAULT_CONFIG: Omit<RigConfig, 'rigNumber'> = {
+  sheetName: "DAILY DRILLING REPORT",
+  dateColumn: "B11",
+  depthColumn: "H11",
+  operationColumn: "A54:K100",
+  dataStartRow: "54",
+  dataEndRow: "100",
+  notes: "",
+};
+
+// Generate configs for all rigs
+const generateAllConfigs = (): RigConfig[] => {
+  return RIGS.map(rig => ({
+    rigNumber: rig,
+    ...DEFAULT_CONFIG,
+    notes: rig === "211" ? "Standard WJO configuration with motor BHA details" :
+           rig === "206" ? "Oxy configuration with RSS BHA setup" : "",
+  }));
+};
+
 const ConfigView = () => {
-  const [configs, setConfigs] = useState<RigConfig[]>(DEFAULT_CONFIGS);
-  const [selectedRig, setSelectedRig] = useState<string>(configs[0]?.rigNumber || "");
+  const [configs, setConfigs] = useState<RigConfig[]>(generateAllConfigs());
+  const [selectedRig, setSelectedRig] = useState<string>(RIGS[0]);
   const { toast } = useToast();
 
   const currentConfig = configs.find((c) => c.rigNumber === selectedRig);
@@ -71,48 +75,22 @@ const ConfigView = () => {
     });
   };
 
-  const handleAddConfig = () => {
-    const newRigNumber = prompt("Enter new rig number:");
-    if (!newRigNumber) return;
-
-    if (configs.some((c) => c.rigNumber === newRigNumber)) {
-      toast({
-        title: "Rig Already Exists",
-        description: `Configuration for Rig ${newRigNumber} already exists.`,
-        variant: "destructive",
-      });
+  const handleResetConfig = () => {
+    if (!confirm(`Reset Rig ${selectedRig} to default configuration?`)) {
       return;
     }
 
-    const newConfig: RigConfig = {
-      rigNumber: newRigNumber,
-      sheetName: "DAILY DRILLING REPORT",
-      dateColumn: "B11",
-      depthColumn: "H11",
-      operationColumn: "A54:K100",
-      dataStartRow: "54",
-      dataEndRow: "100",
-      notes: "",
-    };
-
-    setConfigs((prev) => [...prev, newConfig]);
-    setSelectedRig(newRigNumber);
+    setConfigs((prev) =>
+      prev.map((c) =>
+        c.rigNumber === selectedRig
+          ? { ...c, ...DEFAULT_CONFIG }
+          : c
+      )
+    );
+    
     toast({
-      title: "Configuration Added",
-      description: `New configuration for Rig ${newRigNumber} has been created.`,
-    });
-  };
-
-  const handleDeleteConfig = () => {
-    if (!confirm(`Are you sure you want to delete configuration for Rig ${selectedRig}?`)) {
-      return;
-    }
-
-    setConfigs((prev) => prev.filter((c) => c.rigNumber !== selectedRig));
-    setSelectedRig(configs[0]?.rigNumber || "");
-    toast({
-      title: "Configuration Deleted",
-      description: `Configuration for Rig ${selectedRig} has been removed.`,
+      title: "Configuration Reset",
+      description: `Rig ${selectedRig} has been reset to default settings.`,
     });
   };
 
@@ -136,7 +114,7 @@ const ConfigView = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Select rig..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card max-h-[300px]">
                 {configs.map((config) => (
                   <SelectItem key={config.rigNumber} value={config.rigNumber}>
                     Rig {config.rigNumber}
@@ -145,27 +123,21 @@ const ConfigView = () => {
               </SelectContent>
             </Select>
 
-            <Button onClick={handleAddConfig} className="w-full gap-2" variant="outline">
-              <Plus className="h-4 w-4" />
-              Add New Rig
-            </Button>
-
             <div className="pt-4 border-t border-border">
               <h3 className="text-sm font-semibold mb-3 text-foreground">Configured Rigs</h3>
-              <div className="space-y-2">
-                {configs.map((config) => (
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">{configs.map((config) => (
                   <div
                     key={config.rigNumber}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    className={`p-2 rounded-lg border cursor-pointer transition-colors ${
                       config.rigNumber === selectedRig
-                        ? "border-primary bg-primary/5"
+                        ? "border-primary bg-primary text-primary-foreground"
                         : "border-border hover:bg-muted/50"
                     }`}
                     onClick={() => setSelectedRig(config.rigNumber)}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground">Rig {config.rigNumber}</span>
-                      <Settings2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">Rig {config.rigNumber}</span>
+                      <Settings2 className="h-3 w-3" />
                     </div>
                   </div>
                 ))}
@@ -182,9 +154,9 @@ const ConfigView = () => {
                 <CardDescription>Define data extraction rules and mappings</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleDeleteConfig} variant="destructive" size="sm" className="gap-2">
+                <Button onClick={handleResetConfig} variant="outline" size="sm" className="gap-2">
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  Reset
                 </Button>
                 <Button onClick={handleSaveConfig} size="sm" className="gap-2">
                   <Save className="h-4 w-4" />
