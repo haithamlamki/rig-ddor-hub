@@ -873,24 +873,6 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       }
     }
 
-    // For Hoist rigs, update ALL existing records with the same total amount
-    if (isHoistRig && hoistTotalAmount > 0) {
-      console.log(`Updating all records for Hoist rig ${rig} with total amount: ${hoistTotalAmount}`);
-      
-      // First, update all existing records for this Hoist rig
-      const { error: updateError } = await supabase
-        .from('extracted_ddor_data')
-        .update({
-          total_amount: hoistTotalAmount
-        })
-        .eq('rig_number', rig);
-
-      if (updateError) {
-        console.error('Error updating all Hoist rig records:', updateError);
-        throw updateError;
-      }
-    }
-
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
