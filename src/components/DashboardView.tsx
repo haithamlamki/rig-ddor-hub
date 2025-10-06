@@ -449,7 +449,15 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                     <TableCell className="text-right">{row.stackingHr.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{row.rigMoveHr.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{row.notReceivedDDOR}</TableCell>
-                    <TableCell className="text-right font-semibold">{row.totalHrs.toFixed(2)}</TableCell>
+                    <TableCell className={cn(
+                      "text-right font-semibold",
+                      row.totalHrs > 24 && "text-destructive"
+                    )}>
+                      {row.totalHrs.toFixed(2)}
+                      {row.totalHrs > 24 && (
+                        <span className="ml-1 text-xs">⚠️</span>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-md truncate" title={row.remarks}>
                       {row.remarks}
                     </TableCell>

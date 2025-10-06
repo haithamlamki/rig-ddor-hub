@@ -506,6 +506,12 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       activityHours['Rig Move Hr'];
 
     console.log('Total hours calculated:', totalHrs);
+    
+    // Validate and cap total hours at 24
+    if (totalHrs > 24) {
+      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Capping at 24 hours.`);
+    }
+    const cappedTotalHrs = Math.min(totalHrs, 24);
 
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
@@ -525,7 +531,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         stacking_hr: activityHours['STACKING Hr'],
         rig_move_hr: activityHours['Rig Move Hr'],
         not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
-        total_hrs: totalHrs,
+        total_hrs: cappedTotalHrs,
         remarks: extractedData.extractedData?.Remarks || ''
       }, {
         onConflict: 'rig_number,date',
