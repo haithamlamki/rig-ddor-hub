@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,33 +16,77 @@ serve(async (req) => {
     
     console.log(`Processing sheet data for rig ${rig}...`);
 
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch rig configuration
+    const { data: rigConfig, error: configError } = await supabase
+      .from('rig_configs')
+      .select('*')
+      .eq('rig_number', rig)
+      .single();
+
+    if (configError) {
+      console.error("Error fetching rig config:", configError);
+      throw new Error("Failed to fetch rig configuration");
+    }
+
+    console.log("Rig config:", rigConfig);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Build column mappings description for AI
+    const columnMappings = rigConfig.column_mappings as any[];
+    const fixedDataFields = columnMappings
+      .filter((m: any) => m.isFixedData && m.fixedValue)
+      .map((m: any) => `${m.columnName}: ${m.fixedValue}`)
+      .join(', ');
+
+    const extractableFields = columnMappings
+      .filter((m: any) => !m.isFixedData && m.cellReference)
+      .map((m: any) => `${m.columnName} (from cell ${m.cellReference})`)
+      .join(', ');
+
     // Create a prompt for the AI to analyze and extract structured data
-    const prompt = `You are an expert at analyzing Excel spreadsheet data. 
-    
-I have data from a DDOR (Daily Drilling Operations Report) file for Rig ${rig}. 
-Analyze this sheet data and extract structured information:
+    const prompt = `You are an expert at analyzing Excel spreadsheet data from DDOR (Daily Drilling Operations Report) files.
+
+I have data from rig ${rig}. The sheet name is "${rigConfig.sheet_name}".
+
+FIXED DATA (Use these exact values):
+${fixedDataFields || 'None'}
+
+EXTRACT FROM SHEET (These need to be extracted from the data):
+${extractableFields || 'All fields need to be extracted'}
 
 Sheet Data:
 ${JSON.stringify(sheetData, null, 2)}
 
-Extract and return a JSON object with the following structure:
+Extract and return a JSON object with this EXACT structure (use empty string or 0 for missing values):
 {
-  "records": [
-    {
-      "date": "extracted date or empty string",
-      "time": "extracted time or empty string",
-      "depth": "extracted depth value or empty string",
-      "activity": "extracted activity description or empty string",
-      "remarks": "extracted remarks or empty string"
-    }
-  ],
+  "extractedData": {
+    "Date": "extracted or empty string",
+    "Rig": "${rig}",
+    "Client": "${columnMappings.find((m: any) => m.columnName === 'Client')?.isFixedData ? columnMappings.find((m: any) => m.columnName === 'Client')?.fixedValue : 'extract from data'}",
+    "Operation Hr": number,
+    "Reduce Hr": number,
+    "Standby Hr": number,
+    "Zero Hr": number,
+    "Repair Hr": number,
+    "AM Hr": number,
+    "Special Hr": number,
+    "Force Majeure Hr": number,
+    "STACKING Hr": number,
+    "Rig Move Hr": number,
+    "Not Received DDOR": "extracted or empty string",
+    "Total Hr.s": number,
+    "Remarks": "extracted or empty string"
+  },
   "metadata": {
-    "totalRecords": number,
     "rigNumber": "${rig}",
     "dataQuality": "good/fair/poor"
   }
@@ -103,6 +148,33 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
       throw new Error("Failed to parse AI response");
+    }
+
+    // Store extracted data in database
+    const { error: insertError } = await supabase
+      .from('extracted_ddor_data')
+      .insert({
+        rig_number: rig,
+        date: extractedData.extractedData?.Date || new Date().toISOString().split('T')[0],
+        client: extractedData.extractedData?.Client || '',
+        operation_hr: extractedData.extractedData?.['Operation Hr'] || 0,
+        reduce_hr: extractedData.extractedData?.['Reduce Hr'] || 0,
+        standby_hr: extractedData.extractedData?.['Standby Hr'] || 0,
+        zero_hr: extractedData.extractedData?.['Zero Hr'] || 0,
+        repair_hr: extractedData.extractedData?.['Repair Hr'] || 0,
+        am_hr: extractedData.extractedData?.['AM Hr'] || 0,
+        special_hr: extractedData.extractedData?.['Special Hr'] || 0,
+        force_majeure_hr: extractedData.extractedData?.['Force Majeure Hr'] || 0,
+        stacking_hr: extractedData.extractedData?.['STACKING Hr'] || 0,
+        rig_move_hr: extractedData.extractedData?.['Rig Move Hr'] || 0,
+        not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
+        total_hrs: extractedData.extractedData?.['Total Hr.s'] || 0,
+        remarks: extractedData.extractedData?.Remarks || ''
+      });
+
+    if (insertError) {
+      console.error("Error inserting extracted data:", insertError);
+      throw new Error("Failed to store extracted data");
     }
 
     return new Response(
