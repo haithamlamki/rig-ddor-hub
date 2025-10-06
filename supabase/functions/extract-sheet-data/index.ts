@@ -493,7 +493,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
     const dateStr = toISODate(extractedData.extractedData?.Date);
 
     // Calculate total hours from activity table
-    const totalHrs = 
+    let totalHrs = 
       activityHours['Operation Hr'] +
       activityHours['Reduce Hr'] +
       activityHours['Standby Hr'] +
@@ -507,11 +507,26 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     console.log('Total hours calculated:', totalHrs);
     
-    // Validate and cap total hours at 24
+    // Validate and proportionally scale down if total exceeds 24
     if (totalHrs > 24) {
-      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Capping at 24 hours.`);
+      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
+      const scaleFactor = 24 / totalHrs;
+      
+      // Scale down all hour categories proportionally
+      activityHours['Operation Hr'] *= scaleFactor;
+      activityHours['Reduce Hr'] *= scaleFactor;
+      activityHours['Standby Hr'] *= scaleFactor;
+      activityHours['Zero Hr'] *= scaleFactor;
+      activityHours['Repair Hr'] *= scaleFactor;
+      activityHours['AM Hr'] *= scaleFactor;
+      activityHours['Special Hr'] *= scaleFactor;
+      activityHours['Force Majeure Hr'] *= scaleFactor;
+      activityHours['STACKING Hr'] *= scaleFactor;
+      activityHours['Rig Move Hr'] *= scaleFactor;
+      
+      totalHrs = 24;
+      console.log('Hours scaled down proportionally to 24 total hours');
     }
-    const cappedTotalHrs = Math.min(totalHrs, 24);
 
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
@@ -531,7 +546,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         stacking_hr: activityHours['STACKING Hr'],
         rig_move_hr: activityHours['Rig Move Hr'],
         not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
-        total_hrs: cappedTotalHrs,
+        total_hrs: totalHrs,
         remarks: extractedData.extractedData?.Remarks || ''
       }, {
         onConflict: 'rig_number,date',
