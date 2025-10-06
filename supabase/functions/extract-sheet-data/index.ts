@@ -146,62 +146,120 @@ function findBestRateTypeMatch(input: string): string | null {
   return null;
 }
 
-// Function to extract total amount from Hoist billing sheets
-function extractHoistTotalAmount(sheetData: any[]): number {
-  console.log('Extracting total amount for Hoist rig from billing sheet...');
+// Function to extract daily totals from Hoist billing sheets
+// Returns a map of date -> total amount for all dates found in the sheet
+function extractHoistDailyTotals(sheetData: any[]): Record<string, number> {
+  console.log('Extracting daily totals for Hoist rig from billing sheet...');
   
-  let totalAmount = 0;
-  let foundAmountColumn = false;
+  const dailyTotals: Record<string, number> = {};
   
-  // Look for "Amount" column in the sheet
-  for (const row of sheetData) {
+  // Find the header row containing "Date" and "Amount"
+  let dateColKey = '';
+  let amountColKey = '';
+  let headerRowIndex = -1;
+  
+  for (let i = 0; i < sheetData.length; i++) {
+    const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
     
-    // Check all columns for "Amount" values
+    // Check if this row contains "Date" and "Amount" headers
     for (const [key, value] of Object.entries(row)) {
-      if (!value) continue;
-      
-      // Check if this is an Amount column header
-      const keyStr = String(key).toLowerCase();
-      const valStr = String(value).toLowerCase();
-      
-      if (keyStr.includes('amount') || valStr === 'amount') {
-        foundAmountColumn = true;
-        continue;
+      const valStr = String(value || '').trim().toLowerCase();
+      if (valStr === 'date' && !dateColKey) {
+        dateColKey = key;
       }
-      
-      // Try to parse amount values (format: $10,626.00 or 10626.00)
-      const amountStr = String(value).trim();
-      // Match dollar amounts like $10,626.00 or 10626.00
-      const amountMatch = amountStr.match(/\$?\s*([\d,]+\.?\d*)/);
-      
-      if (amountMatch) {
-        const numStr = amountMatch[1].replace(/,/g, '');
-        const amount = parseFloat(numStr);
-        
-        // Only count significant amounts (> $1) to avoid counting other numeric data
-        if (!isNaN(amount) && amount > 1) {
-          // Additional validation: check if row contains other billing indicators
-          const rowStr = JSON.stringify(row).toLowerCase();
-          const hasBillingIndicators = 
-            rowStr.includes('ptw') || 
-            rowStr.includes('held') || 
-            rowStr.includes('r/u') || 
-            rowStr.includes('rig') ||
-            rowStr.includes('hoist') ||
-            amountStr.startsWith('$');
-          
-          if (hasBillingIndicators || foundAmountColumn) {
-            totalAmount += amount;
-            console.log(`Found amount: $${amount.toFixed(2)} (running total: $${totalAmount.toFixed(2)})`);
-          }
-        }
+      if (valStr === 'amount' && !amountColKey) {
+        amountColKey = key;
       }
+    }
+    
+    // If we found both columns, this is the header row
+    if (dateColKey && amountColKey) {
+      headerRowIndex = i;
+      console.log(`Found header row at index ${i}: Date column="${dateColKey}", Amount column="${amountColKey}"`);
+      break;
     }
   }
   
-  console.log(`Total amount extracted: $${totalAmount.toFixed(2)}`);
-  return totalAmount;
+  if (headerRowIndex === -1) {
+    console.warn('Could not find header row with "Date" and "Amount" columns');
+    return dailyTotals;
+  }
+  
+  // Helper to parse date to ISO format (YYYY-MM-DD)
+  const parseDate = (val: any): string | null => {
+    if (!val) return null;
+    
+    try {
+      // Handle Excel serial date (number)
+      if (typeof val === 'number') {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(excelEpoch.getTime() + val * 86400000);
+        return date.toISOString().slice(0, 10);
+      }
+      
+      // Handle string dates
+      const str = String(val).trim();
+      if (!str) return null;
+      
+      // Try parsing as ISO date or other common formats
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) {
+        // Extract date-only (ignore time)
+        return date.toISOString().slice(0, 10);
+      }
+    } catch (e) {
+      console.warn(`Failed to parse date: ${val}`, e);
+    }
+    
+    return null;
+  };
+  
+  // Helper to parse amount (strip $ and commas)
+  const parseAmount = (val: any): number => {
+    if (!val) return 0;
+    
+    const str = String(val).trim();
+    // Remove $ and commas, then parse as float
+    const cleaned = str.replace(/[\$,]/g, '');
+    const amount = parseFloat(cleaned);
+    
+    return isNaN(amount) ? 0 : amount;
+  };
+  
+  // Process data rows after the header
+  for (let i = headerRowIndex + 1; i < sheetData.length; i++) {
+    const row = sheetData[i];
+    if (!row || typeof row !== 'object') continue;
+    
+    const dateVal = (row as any)[dateColKey];
+    const amountVal = (row as any)[amountColKey];
+    
+    const dateStr = parseDate(dateVal);
+    const amount = parseAmount(amountVal);
+    
+    // Skip rows without valid date or amount
+    if (!dateStr || amount <= 0) continue;
+    
+    // Optional: Filter to hoist rows only
+    // Check if "Activity Description" column contains "hoist" (case-insensitive)
+    const rowStr = JSON.stringify(row).toLowerCase();
+    if (!rowStr.includes('hoist')) {
+      // If your file can contain other equipment, uncomment this to filter
+      // continue;
+    }
+    
+    // Sum amounts by date
+    if (!dailyTotals[dateStr]) {
+      dailyTotals[dateStr] = 0;
+    }
+    dailyTotals[dateStr] += amount;
+    
+    console.log(`Date: ${dateStr}, Amount: $${amount.toFixed(2)} (daily total: $${dailyTotals[dateStr].toFixed(2)})`);
+  }
+  
+  console.log('Daily totals extracted:', dailyTotals);
+  return dailyTotals;
 }
 
 // Function to extract and aggregate activity table hours
@@ -603,13 +661,13 @@ serve(async (req) => {
     // Check if this is a Hoist rig (Hoist 1, Hoist 2, etc.)
     const isHoistRig = String(rig).toLowerCase().includes('hoist');
     
-    let hoistTotalAmount = 0;
+    let hoistDailyTotals: Record<string, number> = {};
     let activityHours: Record<string, number> = {};
     
     if (isHoistRig) {
-      // For Hoist rigs, extract total billing amount instead of hours
-      console.log('Detected Hoist rig - extracting total billing amount...');
-      hoistTotalAmount = extractHoistTotalAmount(sheetData);
+      // For Hoist rigs, extract daily totals from all dates in the file
+      console.log('Detected Hoist rig - extracting daily billing totals...');
+      hoistDailyTotals = extractHoistDailyTotals(sheetData);
     } else {
       // For regular rigs, extract activity table hours
       console.log('Extracting activity table hours...');
@@ -783,69 +841,104 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       return new Date().toISOString().slice(0, 10);
     };
 
+    // For Hoist rigs, process each date found in the file separately
+    if (isHoistRig) {
+      console.log('Processing Hoist rig - updating all dates found in file:', Object.keys(hoistDailyTotals));
+      
+      // Update database for each date found in the file
+      for (const [dateIso, totalAmount] of Object.entries(hoistDailyTotals)) {
+        console.log(`Upserting Hoist data for date ${dateIso} with amount $${totalAmount.toFixed(2)}`);
+        
+        const { error: upsertError } = await supabase
+          .from('extracted_ddor_data')
+          .upsert({
+            rig_number: rig,
+            date: dateIso,
+            client: extractedData.extractedData?.Client || '',
+            operation_hr: 0,
+            reduce_hr: 0,
+            standby_hr: 0,
+            zero_hr: 0,
+            repair_hr: 0,
+            am_hr: 0,
+            special_hr: 0,
+            force_majeure_hr: 0,
+            stacking_hr: 0,
+            rig_move_hr: 0,
+            not_received_ddor: totalAmount === 0 ? '1' : '',
+            total_hrs: 0,
+            total_amount: totalAmount,
+            remarks: ''
+          }, {
+            onConflict: 'rig_number,date',
+            ignoreDuplicates: false
+          });
+
+        if (upsertError) {
+          console.error(`Error upserting data for date ${dateIso}:`, upsertError);
+          throw new Error(`Failed to store data for date ${dateIso}`);
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          data: extractedData,
+          hoistDailyTotals: hoistDailyTotals,
+          datesUpdated: Object.keys(hoistDailyTotals)
+        }), 
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    // For regular rigs, continue with the normal flow
     const dateStr = toISODate(extractedData.extractedData?.Date);
 
     let totalHrs = 0;
     let finalHours: Record<string, number> = {};
     let finalTotal = 0;
+
+    // Calculate total hours from activity table for regular rigs
+    totalHrs = 
+      activityHours['Operation Hr'] +
+      activityHours['Reduce Hr'] +
+      activityHours['Standby Hr'] +
+      activityHours['Zero Hr'] +
+      activityHours['Repair Hr'] +
+      activityHours['AM Hr'] +
+      activityHours['Special Hr'] +
+      activityHours['Force Majeure Hr'] +
+      activityHours['STACKING Hr'] +
+      activityHours['Rig Move Hr'];
+
+    console.log('Total hours calculated:', totalHrs);
     
-    if (isHoistRig) {
-      // For Hoist rigs, we don't calculate hours - we just store the total amount
-      console.log('Hoist rig - skipping hour calculations, using total amount:', hoistTotalAmount);
-      finalHours = {
-        'Operation Hr': 0,
-        'Reduce Hr': 0,
-        'Standby Hr': 0,
-        'Zero Hr': 0,
-        'Repair Hr': 0,
-        'AM Hr': 0,
-        'Special Hr': 0,
-        'Force Majeure Hr': 0,
-        'STACKING Hr': 0,
-        'Rig Move Hr': 0,
-      };
-      finalTotal = 0; // Hoist rigs don't use hours
-    } else {
-      // Calculate total hours from activity table for regular rigs
-      totalHrs = 
-        activityHours['Operation Hr'] +
-        activityHours['Reduce Hr'] +
-        activityHours['Standby Hr'] +
-        activityHours['Zero Hr'] +
-        activityHours['Repair Hr'] +
-        activityHours['AM Hr'] +
-        activityHours['Special Hr'] +
-        activityHours['Force Majeure Hr'] +
-        activityHours['STACKING Hr'] +
-        activityHours['Rig Move Hr'];
-
-      console.log('Total hours calculated:', totalHrs);
+    // Validate and proportionally scale down if total exceeds 24
+    if (totalHrs > 24) {
+      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
+      const scaleFactor = 24 / totalHrs;
       
-      // Validate and proportionally scale down if total exceeds 24
-      if (totalHrs > 24) {
-        console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
-        const scaleFactor = 24 / totalHrs;
-        
-        // Scale down all hour categories proportionally
-        activityHours['Operation Hr'] *= scaleFactor;
-        activityHours['Reduce Hr'] *= scaleFactor;
-        activityHours['Standby Hr'] *= scaleFactor;
-        activityHours['Zero Hr'] *= scaleFactor;
-        activityHours['Repair Hr'] *= scaleFactor;
-        activityHours['AM Hr'] *= scaleFactor;
-        activityHours['Special Hr'] *= scaleFactor;
-        activityHours['Force Majeure Hr'] *= scaleFactor;
-        activityHours['STACKING Hr'] *= scaleFactor;
-        activityHours['Rig Move Hr'] *= scaleFactor;
-        
-        totalHrs = 24;
-        console.log('Hours scaled down proportionally to 24 total hours');
-      }
-
-      // No cumulative addition - each upload replaces previous data
-      finalHours = { ...activityHours };
-      finalTotal = totalHrs;
+      // Scale down all hour categories proportionally
+      activityHours['Operation Hr'] *= scaleFactor;
+      activityHours['Reduce Hr'] *= scaleFactor;
+      activityHours['Standby Hr'] *= scaleFactor;
+      activityHours['Zero Hr'] *= scaleFactor;
+      activityHours['Repair Hr'] *= scaleFactor;
+      activityHours['AM Hr'] *= scaleFactor;
+      activityHours['Special Hr'] *= scaleFactor;
+      activityHours['Force Majeure Hr'] *= scaleFactor;
+      activityHours['STACKING Hr'] *= scaleFactor;
+      activityHours['Rig Move Hr'] *= scaleFactor;
+      
+      totalHrs = 24;
+      console.log('Hours scaled down proportionally to 24 total hours');
     }
+
+    // No cumulative addition - each upload replaces previous data
+    finalHours = { ...activityHours };
+    finalTotal = totalHrs;
 
     // Filter remarks if only Zero Hr and Repair Hr have values
     let finalRemarks = extractedData.extractedData?.Remarks || '';
@@ -890,9 +983,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         force_majeure_hr: finalHours['Force Majeure Hr'],
         stacking_hr: finalHours['STACKING Hr'],
         rig_move_hr: finalHours['Rig Move Hr'],
-        not_received_ddor: finalTotal === 0 && hoistTotalAmount === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
+        not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
         total_hrs: finalTotal,
-        total_amount: hoistTotalAmount, // Store the total amount for Hoist rigs
+        total_amount: 0, // Regular rigs don't use total_amount
         remarks: finalRemarks
       }, {
         onConflict: 'rig_number,date',
