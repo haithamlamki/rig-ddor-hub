@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Table,
+  Table as DataTable,
   TableBody,
   TableCell,
   TableHead,
@@ -332,7 +332,7 @@ const ConfigView = () => {
                     Specify the Excel cell reference for each column
                   </p>
                   <div className="rounded-lg border border-border overflow-hidden">
-                    <Table>
+                    <DataTable>
                       <TableHeader>
                         <TableRow className="bg-primary/90">
                           <TableHead className="font-semibold text-primary-foreground w-1/3">Column Name</TableHead>
@@ -374,7 +374,7 @@ const ConfigView = () => {
                           </TableRow>
                         ))}
                       </TableBody>
-                    </Table>
+                    </DataTable>
                   </div>
                 </div>
               </>
