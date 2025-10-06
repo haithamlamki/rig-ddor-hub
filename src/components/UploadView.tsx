@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Settings2 } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Settings2, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 interface UploadedFile {
@@ -25,6 +29,7 @@ const RIGS = [
 
 const UploadView = ({ onConfigClick }: UploadViewProps) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [extractionDate, setExtractionDate] = useState<Date>();
   const { toast } = useToast();
 
   const handleFileUpload = async (rig: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,10 +107,40 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-foreground mb-2">Upload DDOR Files</h2>
-        <p className="text-muted-foreground">
-          Upload Excel files for each rig
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-3xl font-bold text-foreground mb-2">Upload DDOR Files</h2>
+            <p className="text-muted-foreground">
+              Upload Excel files for each rig
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">File Date:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !extractionDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {extractionDate ? format(extractionDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={extractionDate}
+                  onSelect={setExtractionDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">
