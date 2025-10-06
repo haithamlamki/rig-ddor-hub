@@ -6,13 +6,19 @@ import ConfigView from "@/components/ConfigView";
 
 const Index = () => {
   const [activeView, setActiveView] = useState<"upload" | "dashboard" | "config">("upload");
+  const [selectedRig, setSelectedRig] = useState<string>("");
+
+  const handleConfigClick = (rig: string) => {
+    setSelectedRig(rig);
+    setActiveView("config");
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Header activeView={activeView} onViewChange={setActiveView} />
       
       <main>
-        {activeView === "upload" && <UploadView />}
+        {activeView === "upload" && <UploadView onConfigClick={handleConfigClick} />}
         {activeView === "dashboard" && <DashboardView />}
         {activeView === "config" && <ConfigView />}
       </main>

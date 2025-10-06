@@ -20,6 +20,14 @@ interface DashboardData {
   operationHr: number;
   reduceHr: number;
   standbyHr: number;
+  zeroHr: number;
+  repairHr: number;
+  amHr: number;
+  specialHr: number;
+  forceMajeureHr: number;
+  stackingHr: number;
+  rigMoveHr: number;
+  notReceivedDDOR: string;
   totalHrs: number;
   remarks: string;
 }
@@ -32,6 +40,14 @@ const SAMPLE_DATA: DashboardData[] = [
     operationHr: 24.0,
     reduceHr: 0.0,
     standbyHr: 0.0,
+    zeroHr: 0.0,
+    repairHr: 0.0,
+    amHr: 0.0,
+    specialHr: 0.0,
+    forceMajeureHr: 0.0,
+    stackingHr: 0.0,
+    rigMoveHr: 0.0,
+    notReceivedDDOR: "",
     totalHrs: 24.0,
     remarks: "PJSM. Perform FIT at 7\" casing window. Trip out of hole with milling assy.",
   },
@@ -42,6 +58,14 @@ const SAMPLE_DATA: DashboardData[] = [
     operationHr: 24.0,
     reduceHr: 0.0,
     standbyHr: 0.0,
+    zeroHr: 0.0,
+    repairHr: 0.0,
+    amHr: 0.0,
+    specialHr: 0.0,
+    forceMajeureHr: 0.0,
+    stackingHr: 0.0,
+    rigMoveHr: 0.0,
+    notReceivedDDOR: "",
     totalHrs: 24.0,
     remarks: "Drill 6 1/8\" lateral from 6750 ft to 8600 ft",
   },
@@ -52,28 +76,16 @@ const SAMPLE_DATA: DashboardData[] = [
     operationHr: 22.5,
     reduceHr: 1.5,
     standbyHr: 0.0,
+    zeroHr: 0.0,
+    repairHr: 0.0,
+    amHr: 0.0,
+    specialHr: 0.0,
+    forceMajeureHr: 0.0,
+    stackingHr: 0.0,
+    rigMoveHr: 0.0,
+    notReceivedDDOR: "",
     totalHrs: 24.0,
     remarks: "Continue drilling operations. BHA adjustment required.",
-  },
-  {
-    date: "2025-10-04",
-    rig: "206",
-    client: "Oxy",
-    operationHr: 23.0,
-    reduceHr: 1.0,
-    standbyHr: 0.0,
-    totalHrs: 24.0,
-    remarks: "RIH with RSS BHA. Pressure test completed successfully.",
-  },
-  {
-    date: "2025-10-03",
-    rig: "211",
-    client: "WJO",
-    operationHr: 24.0,
-    reduceHr: 0.0,
-    standbyHr: 0.0,
-    totalHrs: 24.0,
-    remarks: "Normal drilling operations. No NPT.",
   },
 ];
 
@@ -94,7 +106,7 @@ const DashboardView = () => {
 
   const handleExport = () => {
     const csvContent = [
-      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Total Hrs", "Remarks"],
+      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Remarks"],
       ...filteredData.map((row) => [
         row.date,
         row.rig,
@@ -102,6 +114,14 @@ const DashboardView = () => {
         row.operationHr,
         row.reduceHr,
         row.standbyHr,
+        row.zeroHr,
+        row.repairHr,
+        row.amHr,
+        row.specialHr,
+        row.forceMajeureHr,
+        row.stackingHr,
+        row.rigMoveHr,
+        row.notReceivedDDOR,
         row.totalHrs,
         row.remarks,
       ]),
@@ -196,25 +216,23 @@ const DashboardView = () => {
           <div className="rounded-lg border border-border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Date
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      Rig
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold">Client</TableHead>
-                  <TableHead className="font-semibold text-right">Op. Hrs</TableHead>
-                  <TableHead className="font-semibold text-right">Red. Hrs</TableHead>
-                  <TableHead className="font-semibold text-right">Stby Hrs</TableHead>
-                  <TableHead className="font-semibold text-right">Total Hrs</TableHead>
-                  <TableHead className="font-semibold">Remarks</TableHead>
+                <TableRow className="bg-primary/90">
+                  <TableHead className="font-semibold text-primary-foreground">Date</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground">Rig</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground">Client</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Operation Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Reduce Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Standby Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Zero Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Repair Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">AM Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Special Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Force Majeure Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">STACKING Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Rig Move Hr</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Not Received DDOR</TableHead>
+                  <TableHead className="font-semibold text-right text-primary-foreground">Total Hr.s</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,13 +245,17 @@ const DashboardView = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>{row.client}</TableCell>
-                    <TableCell className="text-right text-success font-semibold">
-                      {row.operationHr.toFixed(1)}
-                    </TableCell>
-                    <TableCell className="text-right text-warning font-semibold">
-                      {row.reduceHr.toFixed(1)}
-                    </TableCell>
+                    <TableCell className="text-right">{row.operationHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.reduceHr.toFixed(1)}</TableCell>
                     <TableCell className="text-right">{row.standbyHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.zeroHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.repairHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.amHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.specialHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.forceMajeureHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.stackingHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.rigMoveHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.notReceivedDDOR}</TableCell>
                     <TableCell className="text-right font-semibold">{row.totalHrs.toFixed(1)}</TableCell>
                     <TableCell className="max-w-md truncate" title={row.remarks}>
                       {row.remarks}
