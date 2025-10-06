@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
 interface ColumnMapping {
   columnName: string;
   cellReference: string;
+  isFixedData: boolean;
 }
 
 interface RigConfig {
@@ -60,7 +62,8 @@ const RIGS = [
 
 const DEFAULT_MAPPINGS: ColumnMapping[] = COLUMNS.map(col => ({
   columnName: col,
-  cellReference: ""
+  cellReference: "",
+  isFixedData: false
 }));
 
 const generateAllConfigs = (): RigConfig[] => {
@@ -94,6 +97,21 @@ const ConfigView = () => {
               ...config,
               columnMappings: config.columnMappings.map((m) =>
                 m.columnName === columnName ? { ...m, cellReference } : m
+              ),
+            }
+          : config
+      )
+    );
+  };
+
+  const handleFixedDataToggle = (columnName: string, isChecked: boolean) => {
+    setConfigs((prev) =>
+      prev.map((config) =>
+        config.rigNumber === selectedRig
+          ? {
+              ...config,
+              columnMappings: config.columnMappings.map((m) =>
+                m.columnName === columnName ? { ...m, isFixedData: isChecked } : m
               ),
             }
           : config
@@ -228,6 +246,7 @@ const ConfigView = () => {
                         <TableRow className="bg-primary/90">
                           <TableHead className="font-semibold text-primary-foreground w-1/3">Column Name</TableHead>
                           <TableHead className="font-semibold text-primary-foreground">Cell Reference</TableHead>
+                          <TableHead className="font-semibold text-primary-foreground text-center w-32">Fixed Data</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -240,6 +259,14 @@ const ConfigView = () => {
                                 onChange={(e) => handleMappingUpdate(mapping.columnName, e.target.value)}
                                 placeholder="e.g., B11, A54:K100"
                                 className="max-w-xs"
+                              />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Checkbox
+                                checked={mapping.isFixedData}
+                                onCheckedChange={(checked) => 
+                                  handleFixedDataToggle(mapping.columnName, checked === true)
+                                }
                               />
                             </TableCell>
                           </TableRow>
