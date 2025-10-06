@@ -75,6 +75,7 @@ const rateTypeMapping: Record<string, string> = {
   'RIG MOVE': 'Rig Move Hr',
   'RIG-MOVE': 'Rig Move Hr',
   'RIG/MOVE': 'Rig Move Hr',
+  'R/MOVE': 'Rig Move Hr',
   'RIGMOVE': 'Rig Move Hr',
   'RIG MOVR': 'Rig Move Hr',  // Handle typo
   'MOVE': 'Rig Move Hr',
