@@ -13,6 +13,7 @@ const rateTypeMapping: Record<string, string> = {
   'OP': 'Operation Hr',
   'OP RATE': 'Operation Hr',
   'OP-RATE': 'Operation Hr',
+  'O/RATE': 'Operation Hr',
   'OPERATION': 'Operation Hr',
   'O RATE': 'Operation Hr',
   'OPERATION HOURS': 'Operation Hr',
@@ -23,6 +24,7 @@ const rateTypeMapping: Record<string, string> = {
   'REDU': 'Reduce Hr',
   'REDU RATE': 'Reduce Hr',
   'REDU/RATE': 'Reduce Hr',
+  'R/RATE': 'Reduce Hr',
   'REDUCED': 'Reduce Hr',
   'REDUCTION': 'Reduce Hr',
   
