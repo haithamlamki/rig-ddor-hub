@@ -107,27 +107,43 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
 
         // Create a map of existing data by rig number
         const dataMap = new Map(
-          (extractedData || []).map(item => [
-            item.rig_number,
-            {
-              date: format(new Date(item.date), "dd-MMM-yy"),
-              rig: item.rig_number,
-              client: item.client || "",
-              operationHr: Number(item.operation_hr) || 0,
-              reduceHr: Number(item.reduce_hr) || 0,
-              standbyHr: Number(item.standby_hr) || 0,
-              zeroHr: Number(item.zero_hr) || 0,
-              repairHr: Number(item.repair_hr) || 0,
-              amHr: Number(item.am_hr) || 0,
-              specialHr: Number(item.special_hr) || 0,
-              forceMajeureHr: Number(item.force_majeure_hr) || 0,
-              stackingHr: Number(item.stacking_hr) || 0,
-              rigMoveHr: Number(item.rig_move_hr) || 0,
-              notReceivedDDOR: item.not_received_ddor || "",
-              totalHrs: Number(item.total_hrs) || 0,
-              remarks: item.remarks || "",
-            }
-          ])
+          (extractedData || []).map(item => {
+            const operationHr = Number(item.operation_hr) || 0;
+            const reduceHr = Number(item.reduce_hr) || 0;
+            const standbyHr = Number(item.standby_hr) || 0;
+            const zeroHr = Number(item.zero_hr) || 0;
+            const repairHr = Number(item.repair_hr) || 0;
+            const amHr = Number(item.am_hr) || 0;
+            const specialHr = Number(item.special_hr) || 0;
+            const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+            const stackingHr = Number(item.stacking_hr) || 0;
+            const rigMoveHr = Number(item.rig_move_hr) || 0;
+            
+            const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                           amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+            
+            return [
+              item.rig_number,
+              {
+                date: format(new Date(item.date), "dd-MMM-yy"),
+                rig: item.rig_number,
+                client: item.client || "",
+                operationHr,
+                reduceHr,
+                standbyHr,
+                zeroHr,
+                repairHr,
+                amHr,
+                specialHr,
+                forceMajeureHr,
+                stackingHr,
+                rigMoveHr,
+                notReceivedDDOR: item.not_received_ddor || "",
+                totalHrs,
+                remarks: item.remarks || "",
+              }
+            ];
+          })
         );
 
         // Create a map of rig configurations
@@ -152,22 +168,36 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             return val ? Number(val) : 0;
           };
 
+          const operationHr = getFixedNumber("Operation Hr");
+          const reduceHr = getFixedNumber("Reduce Hr");
+          const standbyHr = getFixedNumber("Standby Hr");
+          const zeroHr = getFixedNumber("Zero Hr");
+          const repairHr = getFixedNumber("Repair Hr");
+          const amHr = getFixedNumber("AM Hr");
+          const specialHr = getFixedNumber("Special Hr");
+          const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+          const stackingHr = getFixedNumber("STACKING Hr");
+          const rigMoveHr = getFixedNumber("Rig Move Hr");
+          
+          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                         amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+
           return {
             date: format(displayDate, "dd-MMM-yy"),
             rig: getFixedValue("Rig") || rig,
             client: getFixedValue("Client"),
-            operationHr: getFixedNumber("Operation Hr"),
-            reduceHr: getFixedNumber("Reduce Hr"),
-            standbyHr: getFixedNumber("Standby Hr"),
-            zeroHr: getFixedNumber("Zero Hr"),
-            repairHr: getFixedNumber("Repair Hr"),
-            amHr: getFixedNumber("AM Hr"),
-            specialHr: getFixedNumber("Special Hr"),
-            forceMajeureHr: getFixedNumber("Force Majeure Hr"),
-            stackingHr: getFixedNumber("STACKING Hr"),
-            rigMoveHr: getFixedNumber("Rig Move Hr"),
+            operationHr,
+            reduceHr,
+            standbyHr,
+            zeroHr,
+            repairHr,
+            amHr,
+            specialHr,
+            forceMajeureHr,
+            stackingHr,
+            rigMoveHr,
             notReceivedDDOR: getFixedValue("Not Received DDOR"),
-            totalHrs: getFixedNumber("Total Hr.s"),
+            totalHrs,
             remarks: getFixedValue("Remarks"),
           };
         });
