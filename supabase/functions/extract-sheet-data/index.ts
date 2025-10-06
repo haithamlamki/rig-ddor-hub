@@ -165,6 +165,24 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
   // Track header columns when available
   let headerCols: { from?: string; to?: string; dur?: string; rate?: string } = {};
   
+  // Helpers to detect section banners and day-range
+  const normalize = (s: any) => String(s ?? '').toUpperCase().trim();
+  const rowToText = (row: any) => Object.values(row ?? {}).map((v) => normalize(v)).join(' ');
+  const hasBannerRange = (text: string, fromH: number, toH: number) => {
+    const compact = text.replace(/\s+/g, ' ');
+    const fromStr = fromH.toString().padStart(2, '0');
+    const toStr = toH.toString().padStart(2, '0');
+    const re = new RegExp(`\\b${fromStr}:?00\\s*-\\s*TO\\s*-\\s*${toStr}:?00\\b`);
+    return re.test(compact);
+  };
+  const hasFullDayBanner = (): boolean => {
+    for (const r of sheetData) {
+      const t = rowToText(r);
+      if (/\b0{1,2}:?0{2}\s*-\s*(?:TO\s*-\s*)?0{1,2}:?0{2}\b/.test(t)) return true; // 00:00 - 00:00 or 00:00 - to - 00:00
+      if (/\b00:00\s*-\s*00:00\s*OPERATION\b/.test(t)) return true; // explicit banner
+    }
+    return false;
+  };
   
   // Helper function to check if a value looks like a time (HH:MM format or decimal)
   const looksLikeTime = (val: any): boolean => {
@@ -265,6 +283,13 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
 
+    // Detect and skip the yellow subsection banner like "00:00 - to - 06:00"
+    const rowText = rowToText(row);
+    if (hasBannerRange(rowText, 0, 6)) {
+      console.log('Encountered "00:00 - to - 06:00" section banner at row:', i, '- ignoring sub-table below');
+      break; // stop before the secondary table
+    }
+
     // Check if this is a data row by looking at From column (supports headered and non-headered JSON)
     const fromValue = headerCols.from ? (row as any)[headerCols.from] : (row as any)['__EMPTY'];
     if (fromValue === null || fromValue === undefined) continue;
@@ -334,6 +359,29 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
             hours = parsed * 24; // Convert from days to hours
           }
         }
+      }
+    }
+
+    // If duration is missing/zero, compute from From -> TO
+    if (hours === 0) {
+      const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
+      if (toValue !== null && toValue !== undefined && looksLikeTime(toValue)) {
+        let toHours = 0;
+        const toStr = String(toValue).trim();
+        if (typeof toValue === 'number') {
+          toHours = toValue * 24; // Excel decimal to hours
+        } else if (toStr.includes(':')) {
+          const p = toStr.split(':');
+          toHours = parseInt(p[0] || '0') + (parseInt(p[1] || '0') / 60);
+        } else {
+          const n = parseFloat(toStr);
+          if (!isNaN(n)) toHours = n * 24;
+        }
+        let diff = toHours - startTimeHours;
+        if (diff < 0) diff += 24; // wrap midnight
+        // Special case: 00:00 to 00:00 means full day
+        if (startTimeHours === 0 && toHours === 0) diff = 24;
+        hours = diff;
       }
     }
 
