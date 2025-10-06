@@ -394,7 +394,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Repair Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalRepairHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-500">{totalRepairHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Maintenance</p>
           </CardContent>
         </Card>
