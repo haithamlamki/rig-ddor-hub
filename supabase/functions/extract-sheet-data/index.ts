@@ -201,7 +201,43 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
   }
 
   if (activityTableStartRow === -1) {
-    console.log('Activity table not found in sheet data');
+    console.log('Activity table not found in sheet data, attempting summary hours fallback');
+    // Fallback: parse summary boxes like "Operation Hours", "Rig Move Hours", etc.
+    const parseNum = (val: any): number => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'number') return Number(val);
+      const s = String(val).replace(/[^0-9.:]/g, '').trim();
+      if (!s) return 0;
+      // Times like H:MM are not expected here; treat as decimal hours if so
+      if (/:/.test(s)) {
+        const [h, m] = s.split(':');
+        const hours = parseInt(h || '0');
+        const mins = parseInt(m || '0');
+        return hours + mins / 60;
+      }
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    };
+
+    for (const row of sheetData) {
+      if (!row || typeof row !== 'object') continue;
+      for (const [key, val] of Object.entries(row)) {
+        if (!key) continue;
+        const k = String(key).toLowerCase();
+        const num = parseNum(val);
+        if (!num) continue;
+        if (k.includes('operation hours')) aggregatedHours['Operation Hr'] += num;
+        else if (k.includes('rig move hours')) aggregatedHours['Rig Move Hr'] += num;
+        else if (k.includes('reduced') && k.includes('repair')) aggregatedHours['Reduce Hr'] += num; // combined box
+        else if (k.includes('stand by hours') || k.includes('standby hours')) aggregatedHours['Standby Hr'] += num;
+        else if (k.includes('zero hours')) aggregatedHours['Zero Hr'] += num;
+        else if (k.includes('am hours') || k.includes('annual maintenance')) aggregatedHours['AM Hr'] += num;
+        else if (k.includes('special')) aggregatedHours['Special Hr'] += num;
+        else if (k.includes('force majeure')) aggregatedHours['Force Majeure Hr'] += num;
+        else if (k.includes('stacking')) aggregatedHours['STACKING Hr'] += num;
+      }
+    }
+    console.log('Summary fallback hours:', aggregatedHours);
     return aggregatedHours;
   }
 
@@ -224,10 +260,9 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const fromStr = String(fromValue).trim();
     if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update 00:00')) continue;
     
-    // Stop if we don't see time-like data anymore (indicates end of activity table)
-    if (!looksLikeTime(fromValue) && fromStr.length > 0) {
-      console.log('End of activity table detected at row:', i);
-      break;
+    // Skip non-time rows within the activity table instead of stopping early
+    if (!looksLikeTime(fromValue)) {
+      continue;
     }
     
     // Parse the start time to detect day boundaries
@@ -289,7 +324,30 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       }
     }
 
-    if (hours === 0) continue;
+    if (hours === 0) {
+      // Fallback: infer duration as the 3rd time-like value in the row
+      const vals = Object.values(row);
+      const timeLikes: any[] = [];
+      for (const v of vals) {
+        if (looksLikeTime(v)) timeLikes.push(v);
+      }
+      if (timeLikes.length >= 3) {
+        const durVal = timeLikes[2];
+        if (typeof durVal === 'number') {
+          hours = durVal * 24;
+        } else {
+          const dStr = String(durVal).trim();
+          if (dStr.includes(':')) {
+            const parts = dStr.split(':');
+            hours = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
+          } else {
+            const parsed = parseFloat(dStr);
+            if (!isNaN(parsed)) hours = parsed * 24;
+          }
+        }
+      }
+      if (hours === 0) continue;
+    }
 
     // Look for rate type across known columns first, then all string cells in the row
     let rateType = '';
