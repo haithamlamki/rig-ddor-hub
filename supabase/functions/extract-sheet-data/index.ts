@@ -135,6 +135,11 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
   }
 
   console.log('Processing activity table rows...');
+  
+  // Track if we've seen late evening hours (indicating we're near end of day)
+  let hasSeenLateEvening = false;
+  let maxTimeSeen = 0;
+  
   // Process activity table rows
   for (let i = activityTableStartRow; i < sheetData.length; i++) {
     const row = sheetData[i];
@@ -146,12 +151,38 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     
     // Skip section headers and empty rows
     const fromStr = String(fromValue).trim();
-    if (fromStr.length === 0 || fromStr.includes('Prepared by')) continue;
+    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update 00:00')) continue;
     
     // Stop if we don't see time-like data anymore (indicates end of activity table)
     if (!looksLikeTime(fromValue) && fromStr.length > 0) {
       console.log('End of activity table detected at row:', i);
       break;
+    }
+    
+    // Parse the start time to detect day boundaries
+    let startTimeHours = 0;
+    if (typeof fromValue === 'number') {
+      startTimeHours = fromValue * 24; // Convert Excel decimal to hours
+    } else if (fromStr.includes(':')) {
+      const parts = fromStr.split(':');
+      startTimeHours = parseInt(parts[0] || '0');
+    }
+    
+    // Detect if we've wrapped to the next day
+    // If we've seen times >= 20:00 and now see 0:00-7:00, we've crossed midnight into next day
+    if (hasSeenLateEvening && startTimeHours >= 0 && startTimeHours < 7) {
+      console.log('Detected next day boundary - wrapped from late evening back to early morning at row:', i);
+      break;
+    }
+    
+    // Track if we've seen late evening hours (20:00 or later)
+    if (startTimeHours >= 20) {
+      hasSeenLateEvening = true;
+    }
+    
+    // Track maximum time seen
+    if (startTimeHours > maxTimeSeen) {
+      maxTimeSeen = startTimeHours;
     }
     
     // Stop processing if we encounter a day separator (next day boundary)
