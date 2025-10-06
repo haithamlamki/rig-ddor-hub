@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Filter, Search } from "lucide-react";
+import { Download, Filter, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface DashboardData {
   date: string;
@@ -80,9 +81,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   
-  // Use selected date or default to current date
-  const displayDate = selectedDate || new Date();
+  // Month and date selection state
+  const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
+  const [selectedDateFilter, setSelectedDateFilter] = useState(selectedDate || new Date());
+  
+  // Use selected date filter
+  const displayDate = selectedDateFilter;
   const dateStr = format(displayDate, "yyyy-MM-dd");
+  
+  // Generate all dates in the current month
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const datesInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   // Load data from database and merge with rig configs
   useEffect(() => {
@@ -263,6 +273,14 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     a.click();
   };
 
+  const handlePreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
@@ -271,6 +289,55 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           View and analyze data from all rigs in one place
         </p>
       </div>
+      
+      {/* Month and Date Filters */}
+      <Card className="shadow-md mb-6">
+        <CardContent className="pt-6">
+          {/* Month Selector */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePreviousMonth}
+              className="h-8 w-8"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="text-lg font-semibold">
+              {format(currentMonth, "MMMM yyyy")}
+            </h3>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNextMonth}
+              className="h-8 w-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Date Selector */}
+          <div className="flex flex-wrap gap-2">
+            {datesInMonth.map((date) => {
+              const isSelected = format(date, "yyyy-MM-dd") === format(selectedDateFilter, "yyyy-MM-dd");
+              return (
+                <Button
+                  key={date.toISOString()}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedDateFilter(date)}
+                  className={cn(
+                    "min-w-[3rem]",
+                    isSelected && "bg-primary text-primary-foreground"
+                  )}
+                >
+                  {format(date, "d")}
+                </Button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card className="shadow-md hover:shadow-lg transition-shadow">
