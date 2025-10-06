@@ -236,8 +236,17 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       row.remarks.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calculate totals for all hour categories
   const totalOperationHrs = filteredData.reduce((sum, row) => sum + row.operationHr, 0);
   const totalReduceHrs = filteredData.reduce((sum, row) => sum + row.reduceHr, 0);
+  const totalStandbyHrs = filteredData.reduce((sum, row) => sum + row.standbyHr, 0);
+  const totalZeroHrs = filteredData.reduce((sum, row) => sum + row.zeroHr, 0);
+  const totalRepairHrs = filteredData.reduce((sum, row) => sum + row.repairHr, 0);
+  const totalAmHrs = filteredData.reduce((sum, row) => sum + row.amHr, 0);
+  const totalSpecialHrs = filteredData.reduce((sum, row) => sum + row.specialHr, 0);
+  const totalForceMajeureHrs = filteredData.reduce((sum, row) => sum + row.forceMajeureHr, 0);
+  const totalStackingHrs = filteredData.reduce((sum, row) => sum + row.stackingHr, 0);
+  const totalRigMoveHrs = filteredData.reduce((sum, row) => sum + row.rigMoveHr, 0);
   const avgEfficiency = ((totalOperationHrs / (totalOperationHrs + totalReduceHrs)) * 100).toFixed(1);
 
   const handleExport = () => {
@@ -339,44 +348,104 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card className="shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{filteredData.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across all rigs</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-8">
         <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Operation Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{totalOperationHrs.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total productive time</p>
+            <div className="text-2xl font-bold text-success">{totalOperationHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Productive time</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Reduced Hours</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Reduce Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-warning">{totalReduceHrs.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Non-productive time</p>
+            <div className="text-2xl font-bold text-warning">{totalReduceHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Non-productive</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Efficiency</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Standby Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-secondary">{avgEfficiency}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Average efficiency rate</p>
+            <div className="text-2xl font-bold text-primary">{totalStandbyHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Waiting time</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Zero Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">{totalZeroHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">No activity</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Repair Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{totalRepairHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Maintenance</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">AM Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{totalAmHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">AM work</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Special Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-secondary">{totalSpecialHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Special ops</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Force Majeure</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-warning">{totalForceMajeureHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">FM events</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Stacking Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">{totalStackingHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Stacked rigs</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rig Move Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{totalRigMoveHrs.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Mobilization</p>
           </CardContent>
         </Card>
       </div>
