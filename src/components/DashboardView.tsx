@@ -842,10 +842,10 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                     <TableCell className="text-center px-2 py-1.5">{row.notReceivedDDOR}</TableCell>
                     <TableCell className={cn(
                       "text-center font-semibold px-2 py-1.5",
-                      row.totalHrs > 24 && "text-destructive"
+                      row.totalHrs !== 24 && row.totalHrs > 0 && "text-destructive"
                     )}>
                       {row.totalHrs.toFixed(2)}
-                      {row.totalHrs > 24 && (
+                      {row.totalHrs !== 24 && row.totalHrs > 0 && (
                         <span className="ml-1 text-xs">⚠️</span>
                       )}
                     </TableCell>
