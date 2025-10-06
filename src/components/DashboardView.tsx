@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Filter, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Filter, Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +90,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [data, setData] = useState<DashboardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRigToClear, setSelectedRigToClear] = useState<string>("");
   const { toast } = useToast();
   
   // Month and date selection state
@@ -369,6 +377,210 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     a.click();
   };
 
+  const handleClearHours = async () => {
+    if (!selectedRigToClear) {
+      toast({
+        title: "No Rig Selected",
+        description: "Please select a rig to clear hours",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('extracted_ddor_data')
+        .delete()
+        .eq('rig_number', selectedRigToClear)
+        .eq('date', dateStr);
+
+      if (error) throw error;
+
+      toast({
+        title: "Hours Cleared",
+        description: `Successfully cleared hours for Rig ${selectedRigToClear} on ${format(selectedDateFilter, "dd-MMM-yy")}`,
+      });
+
+      // Reload data
+      setLoading(true);
+      const { data: extractedData, error: extractError } = await supabase
+        .from('extracted_ddor_data')
+        .select('*')
+        .eq('date', dateStr);
+
+      if (extractError) throw extractError;
+
+      // Reload configurations and rates
+      const { data: rigConfigs } = await supabase.from('rig_configs').select('*');
+      const { data: rigRates } = await supabase.from('rig_rates').select('*');
+
+      // Re-process data (same logic as in useEffect)
+      const ratesMap = new Map((rigRates || []).map(rate => [rate.rig_number, rate]));
+      const dataMap = new Map(
+        (extractedData || []).map(item => {
+          const operationHr = Number(item.operation_hr) || 0;
+          const reduceHr = Number(item.reduce_hr) || 0;
+          const standbyHr = Number(item.standby_hr) || 0;
+          const zeroHr = Number(item.zero_hr) || 0;
+          const repairHr = Number(item.repair_hr) || 0;
+          const amHr = Number(item.am_hr) || 0;
+          const specialHr = Number(item.special_hr) || 0;
+          const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+          const stackingHr = Number(item.stacking_hr) || 0;
+          const rigMoveHr = Number(item.rig_move_hr) || 0;
+          
+          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                         amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+          
+          const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+          const rates = ratesMap.get(item.rig_number);
+          
+          let totalAmount = 0;
+          let totalFuelAmount = 0;
+          
+          if (isHoistRig) {
+            totalAmount = Number(item.total_amount) || 0;
+            totalFuelAmount = 0;
+          } else {
+            totalFuelAmount = rates ? (
+              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+            ) : 0;
+            
+            totalAmount = rates ? (
+              (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+              (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+              (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+              (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+              (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+              (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+              (specialHr * (Number(rates.special_hr_rate) || 0)) +
+              (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+              (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
+              totalFuelAmount
+            ) : 0;
+          }
+          
+          return [
+            item.rig_number,
+            {
+              date: format(new Date(item.date), "dd-MMM-yy"),
+              rig: item.rig_number,
+              client: item.client || "",
+              operationHr,
+              reduceHr,
+              standbyHr,
+              zeroHr,
+              repairHr,
+              amHr,
+              specialHr,
+              forceMajeureHr,
+              stackingHr,
+              rigMoveHr,
+              notReceivedDDOR: item.not_received_ddor || "",
+              totalHrs,
+              remarks: item.remarks || "",
+              totalAmount,
+              totalFuelAmount,
+            }
+          ];
+        })
+      );
+
+      const configMap = new Map((rigConfigs || []).map(config => [config.rig_number, config.column_mappings]));
+
+      const fullData = RIGS.map(rig => {
+        const existingData = dataMap.get(rig);
+        if (existingData) return existingData;
+
+        const mappings = configMap.get(rig) as any[] || [];
+        const getFixedValue = (columnName: string) => {
+          const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
+          return mapping?.fixedValue || "";
+        };
+        
+        const getFixedNumber = (columnName: string) => {
+          const val = getFixedValue(columnName);
+          return val ? Number(val) : 0;
+        };
+
+        const operationHr = getFixedNumber("Operation Hr");
+        const reduceHr = getFixedNumber("Reduce Hr");
+        const standbyHr = getFixedNumber("Standby Hr");
+        const zeroHr = getFixedNumber("Zero Hr");
+        const repairHr = getFixedNumber("Repair Hr");
+        const amHr = getFixedNumber("AM Hr");
+        const specialHr = getFixedNumber("Special Hr");
+        const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+        const stackingHr = getFixedNumber("STACKING Hr");
+        const rigMoveHr = getFixedNumber("Rig Move Hr");
+        
+        const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                       amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+
+        const rates = ratesMap.get(rig);
+        
+        const totalAmount = rates ? (
+          (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+          (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+          (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+          (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+          (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+          (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+          (specialHr * (Number(rates.special_hr_rate) || 0)) +
+          (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+          (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+          (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0))
+        ) : 0;
+        
+        const totalFuelAmount = rates ? (
+          ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+          ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+          ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+          ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+          ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+        ) : 0;
+
+        return {
+          date: format(selectedDateFilter, "dd-MMM-yy"),
+          rig: getFixedValue("Rig") || rig,
+          client: getFixedValue("Client"),
+          operationHr,
+          reduceHr,
+          standbyHr,
+          zeroHr,
+          repairHr,
+          amHr,
+          specialHr,
+          forceMajeureHr,
+          stackingHr,
+          rigMoveHr,
+          notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
+          totalHrs,
+          remarks: getFixedValue("Remarks"),
+          totalAmount,
+          totalFuelAmount,
+        };
+      });
+
+      setData(fullData);
+      setSelectedRigToClear("");
+    } catch (error) {
+      console.error('Error clearing hours:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear hours",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePreviousMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
   };
@@ -541,7 +753,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <CardTitle>Main Consolidated Sheet</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <div className="relative flex-1 md:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -551,6 +763,27 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   className="pl-9"
                 />
               </div>
+              <Select value={selectedRigToClear} onValueChange={setSelectedRigToClear}>
+                <SelectTrigger className="w-[180px] bg-background">
+                  <SelectValue placeholder="Select rig to clear" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {RIGS.map((rig) => (
+                    <SelectItem key={rig} value={rig}>
+                      Rig {rig}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="destructive" 
+                size="icon"
+                onClick={handleClearHours}
+                disabled={!selectedRigToClear}
+                title="Clear selected rig hours"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="icon">
                 <Filter className="h-4 w-4" />
               </Button>
