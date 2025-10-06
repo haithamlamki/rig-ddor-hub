@@ -58,13 +58,42 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
     );
 
     try {
+      // Read Excel file
       const data = await uploadedFile.file.arrayBuffer();
       const workbook = XLSX.read(data);
       
-      // Simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Convert first sheet to JSON
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const sheetData = XLSX.utils.sheet_to_json(worksheet);
 
-      const recordCount = Math.floor(Math.random() * 20) + 5;
+      // Call AI edge function to extract data
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-sheet-data`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sheetData,
+            rig: uploadedFile.rig,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to process file");
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to extract data");
+      }
+
+      const recordCount = result.data?.metadata?.totalRecords || result.data?.records?.length || 0;
 
       setUploadedFiles((prev) =>
         prev.map((f) =>
@@ -76,9 +105,11 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
 
       toast({
         title: "File Processed",
-        description: `Successfully extracted ${recordCount} records from ${uploadedFile.file.name}`,
+        description: `AI extracted ${recordCount} records from ${uploadedFile.file.name}`,
       });
     } catch (error) {
+      console.error("Error processing file:", error);
+      
       setUploadedFiles((prev) =>
         prev.map((f) =>
           f.file === uploadedFile.file ? { ...f, status: "error" } : f
@@ -87,7 +118,7 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
 
       toast({
         title: "Processing Error",
-        description: `Failed to process ${uploadedFile.file.name}`,
+        description: error instanceof Error ? error.message : `Failed to process ${uploadedFile.file.name}`,
         variant: "destructive",
       });
     }

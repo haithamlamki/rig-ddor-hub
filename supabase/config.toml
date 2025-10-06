@@ -1,0 +1,4 @@
+project_id = "nssodrhmxgljtnqhalun"
+
+[functions.extract-sheet-data]
+verify_jwt = false
