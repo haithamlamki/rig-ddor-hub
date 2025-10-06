@@ -157,6 +157,10 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
   console.log('Extracting activity hours from sheet data...');
   
+  // Track header columns when available
+  let headerCols: { from?: string; to?: string; dur?: string; rate?: string } = {};
+  
+  
   // Helper function to check if a value looks like a time (HH:MM format or decimal)
   const looksLikeTime = (val: any): boolean => {
     if (val === null || val === undefined) return false;
@@ -174,14 +178,18 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     if (!row || typeof row !== 'object') continue;
 
     // Check if this row contains the headers (From, TO, Dur.) - case insensitive
-    const col0 = String((row as any)['__EMPTY'] || '').trim();
-    const col1 = String((row as any)['__EMPTY_1'] || '').trim();
-    const col2 = String((row as any)['__EMPTY_2'] || '').trim();
-    
-    if (col0.toLowerCase() === 'from' && col1.toLowerCase() === 'to' && col2.toLowerCase().includes('dur')) {
+    const entries = Object.entries(row);
+    const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+    const fromKey = byVal('from');
+    const toKey = byVal('to');
+    const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+    const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
+
+    if (fromKey && toKey && durKey) {
       activityTableStartRow = i + 1; // Start from next row (data rows)
       hasHeaders = true;
-      console.log('Found activity table with headers at row:', activityTableStartRow);
+      headerCols = { from: fromKey, to: toKey, dur: durKey, rate: rateKey };
+      console.log('Found activity table with headers at row:', activityTableStartRow, 'cols:', headerCols);
       break;
     }
     
@@ -253,7 +261,7 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     if (!row || typeof row !== 'object') continue;
 
     // Check if this is a data row by looking at From column (supports headered and non-headered JSON)
-    const fromValue = (row as any)['__EMPTY'] ?? (row as any)['From'] ?? (row as any)['FROM'] ?? (row as any)['from'];
+    const fromValue = headerCols.from ? (row as any)[headerCols.from] : (row as any)['__EMPTY'];
     if (fromValue === null || fromValue === undefined) continue;
     
     // Skip section headers and empty rows
@@ -298,8 +306,8 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       break;
     }
 
-    // Column __EMPTY_2 = Duration (Dur.) (supports headered and non-headered JSON)
-    const durationValue = (row as any)['__EMPTY_2'] ?? (row as any)['Dur.'] ?? (row as any)['Dur'] ?? (row as any)['DUR'];
+    // Column for Duration (Dur.)
+    const durationValue = headerCols.dur ? (row as any)[headerCols.dur] : (row as any)['__EMPTY_2'];
     let hours = 0;
 
     // Parse duration
@@ -351,20 +359,37 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
     // Look for rate type across known columns first, then all string cells in the row
     let rateType = '';
-    for (let colIdx = 12; colIdx >= 3; colIdx--) {
-      const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
-      const rawVal = (row as any)[colName];
-      const cellValue = String(rawVal ?? '').trim().toUpperCase();
-      if (!cellValue) continue;
-      const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
-      if (rateTypeMapping[cellValue]) { rateType = cellValue; break; }
-      if (rateTypeMapping[cleanedValue]) { rateType = cleanedValue; break; }
-      if (cellValue.length > 1) {
-        const fuzzyMatch = findBestRateTypeMatch(cellValue);
-        if (fuzzyMatch) { rateType = fuzzyMatch; break; }
+    // 1) Prefer explicit Rate column if we detected it
+    if (headerCols.rate) {
+      const rateVal = (row as any)[headerCols.rate];
+      if (rateVal != null) {
+        const rv = String(rateVal).trim().toUpperCase();
+        const cleaned = rv.replace(/[\/\-\s]/g, '').replace('RATE', '');
+        if (rateTypeMapping[rv]) rateType = rv;
+        else if (rateTypeMapping[cleaned]) rateType = cleaned;
+        else {
+          const fuzzy = findBestRateTypeMatch(rv);
+          if (fuzzy) rateType = fuzzy;
+        }
       }
     }
-    // Fallback: scan all values in the row (supports headered JSON with 'Rate' column)
+    // 2) Try scanning typical columns
+    if (!rateType) {
+      for (let colIdx = 20; colIdx >= 0; colIdx--) {
+        const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
+        const rawVal = (row as any)[colName];
+        const cellValue = String(rawVal ?? '').trim().toUpperCase();
+        if (!cellValue) continue;
+        const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
+        if (rateTypeMapping[cellValue]) { rateType = cellValue; break; }
+        if (rateTypeMapping[cleanedValue]) { rateType = cleanedValue; break; }
+        if (cellValue.length > 1) {
+          const fuzzyMatch = findBestRateTypeMatch(cellValue);
+          if (fuzzyMatch) { rateType = fuzzyMatch; break; }
+        }
+      }
+    }
+    // 3) Fallback: scan all values in the row
     if (!rateType) {
       for (const [k, v] of Object.entries(row)) {
         if (v == null) continue;
@@ -390,6 +415,35 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       }
     } else if (hours > 0) {
       console.log(`Warning: Found ${hours.toFixed(2)} hours but no matching rate type in row ${i}`);
+    }
+  }
+
+  // If nothing captured, try summary labels fallback scanning values
+  const allZero = Object.values(aggregatedHours).every(v => v === 0);
+  if (allZero) {
+    const pickNumberInRow = (row: any): number => {
+      let best = 0;
+      for (const v of Object.values(row)) {
+        if (v == null) continue;
+        const s = String(v).trim();
+        // Prefer numbers like 14 or 6.00
+        const n = parseFloat(s);
+        if (!isNaN(n)) best = Math.max(best, n);
+      }
+      return best;
+    };
+    for (const row of sheetData) {
+      if (!row || typeof row !== 'object') continue;
+      const vals = Object.values(row).map(v => String(v ?? '').toLowerCase());
+      if (vals.some(t => t.includes('operation hours'))) aggregatedHours['Operation Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('rig move hours'))) aggregatedHours['Rig Move Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('reduced') && t.includes('repair'))) aggregatedHours['Reduce Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('stand by hours') || t.includes('standby hours'))) aggregatedHours['Standby Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('zero hours'))) aggregatedHours['Zero Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('am hours') || t.includes('annual maintenance'))) aggregatedHours['AM Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('special'))) aggregatedHours['Special Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('force majeure'))) aggregatedHours['Force Majeure Hr'] += pickNumberInRow(row);
+      if (vals.some(t => t.includes('stacking'))) aggregatedHours['STACKING Hr'] += pickNumberInRow(row);
     }
   }
 
