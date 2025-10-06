@@ -354,7 +354,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Operation Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{totalOperationHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-500">{totalOperationHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Productive time</p>
           </CardContent>
         </Card>
@@ -364,7 +364,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Reduce Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{totalReduceHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-500">{totalReduceHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Non-productive</p>
           </CardContent>
         </Card>
@@ -374,7 +374,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Standby Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{totalStandbyHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-500">{totalStandbyHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Waiting time</p>
           </CardContent>
         </Card>
@@ -384,7 +384,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Zero Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">{totalZeroHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-500">{totalZeroHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">No activity</p>
           </CardContent>
         </Card>
@@ -394,7 +394,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Repair Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{totalRepairHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-500">{totalRepairHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Maintenance</p>
           </CardContent>
         </Card>
@@ -404,7 +404,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">AM Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{totalAmHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-500">{totalAmHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">AM work</p>
           </CardContent>
         </Card>
@@ -414,7 +414,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Special Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-secondary">{totalSpecialHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-500">{totalSpecialHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Special ops</p>
           </CardContent>
         </Card>
@@ -424,7 +424,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Force Majeure</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{totalForceMajeureHrs.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-500">{totalForceMajeureHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">FM events</p>
           </CardContent>
         </Card>
