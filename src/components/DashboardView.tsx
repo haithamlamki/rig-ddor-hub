@@ -323,7 +323,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
 
   const handleExport = () => {
     const csvContent = [
-      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Remarks", "Total Amount", "Total Fuel Amount"],
+      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Total Amount", "Total Fuel Amount", "Remarks"],
       ...filteredData.map((row) => [
         row.date,
         row.rig,
@@ -340,9 +340,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         row.rigMoveHr,
         row.notReceivedDDOR,
         row.totalHrs,
-        row.remarks,
         row.totalAmount.toFixed(2),
         row.totalFuelAmount.toFixed(2),
+        row.remarks,
       ]),
     ]
       .map((row) => row.join(","))
@@ -568,9 +568,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   <TableHead className="font-semibold text-right text-primary-foreground">Rig Move Hr</TableHead>
                   <TableHead className="font-semibold text-right text-primary-foreground">Not Received DDOR</TableHead>
                   <TableHead className="font-semibold text-right text-primary-foreground">Total Hr.s</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Remarks</TableHead>
                   <TableHead className="font-semibold text-right text-primary-foreground">Total Amount</TableHead>
                   <TableHead className="font-semibold text-right text-primary-foreground">Total Fuel</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -603,14 +603,14 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         <span className="ml-1 text-xs">⚠️</span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-md truncate" title={row.remarks}>
-                      {row.remarks}
-                    </TableCell>
                     <TableCell className="text-right font-semibold text-green-600 dark:text-green-500">
                       ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-500">
                       ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="max-w-md truncate" title={row.remarks}>
+                      {row.remarks}
                     </TableCell>
                   </TableRow>
                 ))}
