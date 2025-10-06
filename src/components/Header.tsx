@@ -8,7 +8,7 @@ interface HeaderProps {
 
 const Header = ({ activeView, onViewChange }: HeaderProps) => {
   return (
-    <header className="border-b border-border bg-card shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-border bg-card shadow-sm">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
