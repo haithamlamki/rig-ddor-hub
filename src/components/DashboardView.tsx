@@ -317,7 +317,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </div>
           
           {/* Date Selector */}
-          <div className="flex gap-0.5 justify-start">
+          <div className="flex gap-1 w-full">
             {datesInMonth.map((date) => {
               const isSelected = format(date, "yyyy-MM-dd") === format(selectedDateFilter, "yyyy-MM-dd");
               return (
@@ -327,7 +327,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   size="sm"
                   onClick={() => setSelectedDateFilter(date)}
                   className={cn(
-                    "h-7 w-8 p-0 text-xs shrink-0",
+                    "h-8 flex-1 p-0 text-sm min-w-0",
                     isSelected && "bg-primary text-primary-foreground"
                   )}
                 >
