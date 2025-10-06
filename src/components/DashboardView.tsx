@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Filter, Search, Calendar, Building2 } from "lucide-react";
+import { Download, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,66 +32,74 @@ interface DashboardData {
   remarks: string;
 }
 
-const SAMPLE_DATA: DashboardData[] = [
-  {
-    date: "2025-10-05",
-    rig: "211",
-    client: "WJO",
-    operationHr: 24.0,
-    reduceHr: 0.0,
-    standbyHr: 0.0,
-    zeroHr: 0.0,
-    repairHr: 0.0,
-    amHr: 0.0,
-    specialHr: 0.0,
-    forceMajeureHr: 0.0,
-    stackingHr: 0.0,
-    rigMoveHr: 0.0,
-    notReceivedDDOR: "",
-    totalHrs: 24.0,
-    remarks: "PJSM. Perform FIT at 7\" casing window. Trip out of hole with milling assy.",
-  },
-  {
-    date: "2025-10-05",
-    rig: "206",
-    client: "Oxy",
-    operationHr: 24.0,
-    reduceHr: 0.0,
-    standbyHr: 0.0,
-    zeroHr: 0.0,
-    repairHr: 0.0,
-    amHr: 0.0,
-    specialHr: 0.0,
-    forceMajeureHr: 0.0,
-    stackingHr: 0.0,
-    rigMoveHr: 0.0,
-    notReceivedDDOR: "",
-    totalHrs: 24.0,
-    remarks: "Drill 6 1/8\" lateral from 6750 ft to 8600 ft",
-  },
-  {
-    date: "2025-10-04",
-    rig: "211",
-    client: "WJO",
-    operationHr: 22.5,
-    reduceHr: 1.5,
-    standbyHr: 0.0,
-    zeroHr: 0.0,
-    repairHr: 0.0,
-    amHr: 0.0,
-    specialHr: 0.0,
-    forceMajeureHr: 0.0,
-    stackingHr: 0.0,
-    rigMoveHr: 0.0,
-    notReceivedDDOR: "",
-    totalHrs: 24.0,
-    remarks: "Continue drilling operations. BHA adjustment required.",
-  },
+const RIGS = [
+  "103", "104", "105", "106", "107", "108", "109", "110", "111", "112",
+  "201", "202", "203", "204", "205", "206", "207", "208", "209", "210", "211",
+  "301", "302", "303", "304", "305", "306",
+  "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
+
+// Generate fixed monthly structure for October 2025
+const generateMonthlyData = (): DashboardData[] => {
+  const data: DashboardData[] = [];
+  const daysInOctober = 31;
+  
+  for (let day = 1; day <= daysInOctober; day++) {
+    const dateStr = `${day.toString().padStart(2, '0')}-Oct-25`;
+    
+    for (const rig of RIGS) {
+      data.push({
+        date: dateStr,
+        rig: rig,
+        client: "",
+        operationHr: 0,
+        reduceHr: 0,
+        standbyHr: 0,
+        zeroHr: 0,
+        repairHr: 0,
+        amHr: 0,
+        specialHr: 0,
+        forceMajeureHr: 0,
+        stackingHr: 0,
+        rigMoveHr: 0,
+        notReceivedDDOR: "",
+        totalHrs: 0,
+        remarks: "",
+      });
+    }
+  }
+  
+  // Add some sample data for demonstration
+  const sampleIndex1 = data.findIndex(d => d.date === "05-Oct-25" && d.rig === "211");
+  if (sampleIndex1 >= 0) {
+    data[sampleIndex1] = {
+      ...data[sampleIndex1],
+      client: "WJO",
+      operationHr: 24.0,
+      totalHrs: 24.0,
+      remarks: "PJSM. Perform FIT at 7\" casing window. Trip out of hole with milling assy.",
+    };
+  }
+  
+  const sampleIndex2 = data.findIndex(d => d.date === "05-Oct-25" && d.rig === "206");
+  if (sampleIndex2 >= 0) {
+    data[sampleIndex2] = {
+      ...data[sampleIndex2],
+      client: "Oxy",
+      operationHr: 24.0,
+      totalHrs: 24.0,
+      remarks: "Drill 6 1/8\" lateral from 6750 ft to 8600 ft",
+    };
+  }
+  
+  return data;
+};
+
+const MONTHLY_DATA = generateMonthlyData();
 
 const DashboardView = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [data] = useState<DashboardData[]>(SAMPLE_DATA);
+  const [data] = useState<DashboardData[]>(MONTHLY_DATA);
 
   const filteredData = data.filter(
     (row) =>
