@@ -23,7 +23,7 @@ const rateTypeMapping: Record<string, string> = {
 };
 
 // Function to extract and aggregate activity table hours
-function extractActivityHours(sheetData: any[][]): Record<string, number> {
+function extractActivityHours(sheetData: any[]): Record<string, number> {
   const aggregatedHours: Record<string, number> = {
     'Operation Hr': 0,
     'Reduce Hr': 0,
@@ -43,12 +43,13 @@ function extractActivityHours(sheetData: any[][]): Record<string, number> {
   let activityTableStartRow = -1;
   for (let i = 0; i < sheetData.length; i++) {
     const row = sheetData[i];
-    if (row && row.length > 2) {
-      const firstCell = String(row[0] || '').toLowerCase().trim();
-      const secondCell = String(row[1] || '').toLowerCase().trim();
-      const thirdCell = String(row[2] || '').toLowerCase().trim();
+    if (row && typeof row === 'object') {
+      // Check if this row contains the headers (From, TO, Dur.)
+      const col0 = String((row as any)['__EMPTY'] || '').toLowerCase().trim();
+      const col1 = String((row as any)['__EMPTY_1'] || '').toLowerCase().trim();
+      const col2 = String((row as any)['__EMPTY_2'] || '').toLowerCase().trim();
       
-      if (firstCell === 'from' && secondCell === 'to' && thirdCell.includes('dur')) {
+      if (col0 === 'from' && col1 === 'to' && col2.includes('dur')) {
         activityTableStartRow = i + 1; // Start from next row (data rows)
         console.log('Found activity table at row:', activityTableStartRow);
         break;
@@ -61,36 +62,53 @@ function extractActivityHours(sheetData: any[][]): Record<string, number> {
     return aggregatedHours;
   }
 
+  console.log('Processing activity table rows...');
   // Process activity table rows
   for (let i = activityTableStartRow; i < sheetData.length; i++) {
     const row = sheetData[i];
-    if (!row || row.length < 3) continue;
+    if (!row || typeof row !== 'object') continue;
 
-    // Skip if first cell is empty or looks like a section break
-    const firstCell = String(row[0] || '').trim();
-    if (!firstCell || firstCell.length === 0) continue;
+    // Check if this is a data row by looking at __EMPTY (From column)
+    const fromValue = (row as any)['__EMPTY'];
+    if (fromValue === null || fromValue === undefined) continue;
+    
+    // Skip section headers and empty rows
+    const fromStr = String(fromValue).trim();
+    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('00:00 - to -')) continue;
 
-    // Column C (index 2) = Duration
-    const durationCell = row[2];
+    // Column __EMPTY_2 = Duration (Dur.)
+    const durationValue = (row as any)['__EMPTY_2'];
     let hours = 0;
 
-    // Parse duration (can be in format "2:00" or decimal)
-    if (durationCell) {
-      const durationStr = String(durationCell).trim();
-      if (durationStr.includes(':')) {
-        // Format: "2:00" or "1:30"
-        const parts = durationStr.split(':');
-        hours = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
+    // Parse duration
+    if (durationValue !== null && durationValue !== undefined) {
+      if (typeof durationValue === 'number') {
+        // Excel stores times as decimal fractions of a day
+        // e.g., 2 hours = 2/24 = 0.0833...
+        hours = durationValue * 24;
       } else {
-        // Decimal format
-        hours = parseFloat(durationStr) || 0;
+        const durationStr = String(durationValue).trim();
+        if (durationStr.includes(':')) {
+          // Format: "2:00" or "1:30"
+          const parts = durationStr.split(':');
+          hours = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
+        } else {
+          // Decimal format
+          const parsed = parseFloat(durationStr);
+          if (!isNaN(parsed)) {
+            hours = parsed * 24; // Convert from days to hours
+          }
+        }
       }
     }
 
-    // Look through remaining columns for rate type (usually last column)
+    if (hours === 0) continue;
+
+    // Look for rate type in the last columns (__EMPTY_9, __EMPTY_8, etc.)
     let rateType = '';
-    for (let j = row.length - 1; j >= 3; j--) {
-      const cellValue = String(row[j] || '').trim().toUpperCase();
+    for (let colIdx = 9; colIdx >= 3; colIdx--) {
+      const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
+      const cellValue = String((row as any)[colName] || '').trim().toUpperCase();
       if (cellValue && rateTypeMapping[cellValue]) {
         rateType = cellValue;
         break;
@@ -101,7 +119,7 @@ function extractActivityHours(sheetData: any[][]): Record<string, number> {
       const targetField = rateTypeMapping[rateType];
       if (targetField) {
         aggregatedHours[targetField] += hours;
-        console.log(`Added ${hours} hours to ${targetField} from rate type ${rateType}`);
+        console.log(`Added ${hours.toFixed(2)} hours to ${targetField} from rate type ${rateType}`);
       }
     }
   }
