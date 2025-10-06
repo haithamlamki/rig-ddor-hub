@@ -23,6 +23,7 @@ const rateTypeMapping: Record<string, string> = {
   'OPERATION RATE': 'Operation Hr',
   'OPRETION RATE': 'Operation Hr',  // Handle common typo
   'OPRETION': 'Operation Hr',
+  'OPRATION': 'Operation Hr',  // Handle common typo - missing E
   
   // Reduce Hr synonyms
   'REDUCE': 'Reduce Hr',
@@ -68,6 +69,8 @@ const rateTypeMapping: Record<string, string> = {
   'RIG MOVE': 'Rig Move Hr',
   'RIG-MOVE': 'Rig Move Hr',
   'RIG/MOVE': 'Rig Move Hr',
+  'RIGMOVE': 'Rig Move Hr',
+  'RIG MOVR': 'Rig Move Hr',  // Handle typo
   'MOVE': 'Rig Move Hr',
   'R': 'Rig Move Hr',
 };
@@ -528,6 +531,57 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       console.log('Hours scaled down proportionally to 24 total hours');
     }
 
+    // Check if record exists for this rig and date
+    const { data: existingRecord } = await supabase
+      .from('extracted_ddor_data')
+      .select('*')
+      .eq('rig_number', rig)
+      .eq('date', dateStr)
+      .single();
+
+    let finalHours = { ...activityHours };
+    let finalTotal = totalHrs;
+
+    // If record exists and current total < 24, add to existing hours (cumulative upload)
+    if (existingRecord && totalHrs < 24) {
+      const existingTotal = Number(existingRecord.total_hrs || 0);
+      
+      // Add new hours to existing hours
+      finalHours['Operation Hr'] += Number(existingRecord.operation_hr || 0);
+      finalHours['Reduce Hr'] += Number(existingRecord.reduce_hr || 0);
+      finalHours['Standby Hr'] += Number(existingRecord.standby_hr || 0);
+      finalHours['Zero Hr'] += Number(existingRecord.zero_hr || 0);
+      finalHours['Repair Hr'] += Number(existingRecord.repair_hr || 0);
+      finalHours['AM Hr'] += Number(existingRecord.am_hr || 0);
+      finalHours['Special Hr'] += Number(existingRecord.special_hr || 0);
+      finalHours['Force Majeure Hr'] += Number(existingRecord.force_majeure_hr || 0);
+      finalHours['STACKING Hr'] += Number(existingRecord.stacking_hr || 0);
+      finalHours['Rig Move Hr'] += Number(existingRecord.rig_move_hr || 0);
+      
+      finalTotal = existingTotal + totalHrs;
+      
+      console.log(`Cumulative upload detected. Adding ${totalHrs.toFixed(2)} hours to existing ${existingTotal.toFixed(2)} hours. New total: ${finalTotal.toFixed(2)}`);
+      
+      // Scale down if combined total exceeds 24
+      if (finalTotal > 24) {
+        console.warn(`Combined total (${finalTotal.toFixed(2)}) exceeds 24 hours. Scaling down proportionally.`);
+        const scaleFactor = 24 / finalTotal;
+        
+        finalHours['Operation Hr'] *= scaleFactor;
+        finalHours['Reduce Hr'] *= scaleFactor;
+        finalHours['Standby Hr'] *= scaleFactor;
+        finalHours['Zero Hr'] *= scaleFactor;
+        finalHours['Repair Hr'] *= scaleFactor;
+        finalHours['AM Hr'] *= scaleFactor;
+        finalHours['Special Hr'] *= scaleFactor;
+        finalHours['Force Majeure Hr'] *= scaleFactor;
+        finalHours['STACKING Hr'] *= scaleFactor;
+        finalHours['Rig Move Hr'] *= scaleFactor;
+        
+        finalTotal = 24;
+      }
+    }
+
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
@@ -535,18 +589,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         rig_number: rig,
         date: dateStr,
         client: extractedData.extractedData?.Client || '',
-        operation_hr: activityHours['Operation Hr'],
-        reduce_hr: activityHours['Reduce Hr'],
-        standby_hr: activityHours['Standby Hr'],
-        zero_hr: activityHours['Zero Hr'],
-        repair_hr: activityHours['Repair Hr'],
-        am_hr: activityHours['AM Hr'],
-        special_hr: activityHours['Special Hr'],
-        force_majeure_hr: activityHours['Force Majeure Hr'],
-        stacking_hr: activityHours['STACKING Hr'],
-        rig_move_hr: activityHours['Rig Move Hr'],
+        operation_hr: finalHours['Operation Hr'],
+        reduce_hr: finalHours['Reduce Hr'],
+        standby_hr: finalHours['Standby Hr'],
+        zero_hr: finalHours['Zero Hr'],
+        repair_hr: finalHours['Repair Hr'],
+        am_hr: finalHours['AM Hr'],
+        special_hr: finalHours['Special Hr'],
+        force_majeure_hr: finalHours['Force Majeure Hr'],
+        stacking_hr: finalHours['STACKING Hr'],
+        rig_move_hr: finalHours['Rig Move Hr'],
         not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
-        total_hrs: totalHrs,
+        total_hrs: finalTotal,
         remarks: extractedData.extractedData?.Remarks || ''
       }, {
         onConflict: 'rig_number,date',
