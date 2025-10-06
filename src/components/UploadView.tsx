@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Settings2, CalendarIcon } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Settings2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +31,22 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Month and date selection state
+  const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
+  
+  // Generate all dates in the current month
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const datesInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  
+  const handlePreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
 
   const handleFileUpload = async (rig: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -165,41 +179,60 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground mb-2">Upload DDOR Files</h2>
-            <p className="text-muted-foreground">
-              Upload Excel files for each rig
-            </p>
+        <h2 className="text-3xl font-bold text-foreground mb-2">Upload DDOR Files</h2>
+        <p className="text-muted-foreground">
+          Upload Excel files for each rig
+        </p>
+      </div>
+      
+      {/* Month and Date Filters */}
+      <Card className="shadow-md mb-6">
+        <CardContent className="pt-6">
+          {/* Month Selector */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePreviousMonth}
+              className="h-8 w-8"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="text-lg font-semibold">
+              {format(currentMonth, "MMMM yyyy")}
+            </h3>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNextMonth}
+              className="h-8 w-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">File Date:</span>
-            <Popover>
-              <PopoverTrigger asChild>
+          
+          {/* Date Selector */}
+          <div className="flex gap-1 w-full">
+            {datesInMonth.map((date) => {
+              const isSelected = selectedDate && format(date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+              return (
                 <Button
-                  variant="outline"
+                  key={date.toISOString()}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onDateChange(date)}
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !selectedDate && "text-muted-foreground"
+                    "h-8 flex-1 p-0 text-sm min-w-0",
+                    isSelected && "bg-primary text-primary-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                  {format(date, "d")}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={onDateChange}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+              );
+            })}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-3">
         {RIGS.map((rig) => {
