@@ -785,45 +785,67 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     const dateStr = toISODate(extractedData.extractedData?.Date);
 
-    // Calculate total hours from activity table
-    let totalHrs = 
-      activityHours['Operation Hr'] +
-      activityHours['Reduce Hr'] +
-      activityHours['Standby Hr'] +
-      activityHours['Zero Hr'] +
-      activityHours['Repair Hr'] +
-      activityHours['AM Hr'] +
-      activityHours['Special Hr'] +
-      activityHours['Force Majeure Hr'] +
-      activityHours['STACKING Hr'] +
-      activityHours['Rig Move Hr'];
-
-    console.log('Total hours calculated:', totalHrs);
+    let totalHrs = 0;
+    let finalHours: Record<string, number> = {};
+    let finalTotal = 0;
     
-    // Validate and proportionally scale down if total exceeds 24
-    if (totalHrs > 24) {
-      console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
-      const scaleFactor = 24 / totalHrs;
-      
-      // Scale down all hour categories proportionally
-      activityHours['Operation Hr'] *= scaleFactor;
-      activityHours['Reduce Hr'] *= scaleFactor;
-      activityHours['Standby Hr'] *= scaleFactor;
-      activityHours['Zero Hr'] *= scaleFactor;
-      activityHours['Repair Hr'] *= scaleFactor;
-      activityHours['AM Hr'] *= scaleFactor;
-      activityHours['Special Hr'] *= scaleFactor;
-      activityHours['Force Majeure Hr'] *= scaleFactor;
-      activityHours['STACKING Hr'] *= scaleFactor;
-      activityHours['Rig Move Hr'] *= scaleFactor;
-      
-      totalHrs = 24;
-      console.log('Hours scaled down proportionally to 24 total hours');
-    }
+    if (isHoistRig) {
+      // For Hoist rigs, we don't calculate hours - we just store the total amount
+      console.log('Hoist rig - skipping hour calculations, using total amount:', hoistTotalAmount);
+      finalHours = {
+        'Operation Hr': 0,
+        'Reduce Hr': 0,
+        'Standby Hr': 0,
+        'Zero Hr': 0,
+        'Repair Hr': 0,
+        'AM Hr': 0,
+        'Special Hr': 0,
+        'Force Majeure Hr': 0,
+        'STACKING Hr': 0,
+        'Rig Move Hr': 0,
+      };
+      finalTotal = 0; // Hoist rigs don't use hours
+    } else {
+      // Calculate total hours from activity table for regular rigs
+      totalHrs = 
+        activityHours['Operation Hr'] +
+        activityHours['Reduce Hr'] +
+        activityHours['Standby Hr'] +
+        activityHours['Zero Hr'] +
+        activityHours['Repair Hr'] +
+        activityHours['AM Hr'] +
+        activityHours['Special Hr'] +
+        activityHours['Force Majeure Hr'] +
+        activityHours['STACKING Hr'] +
+        activityHours['Rig Move Hr'];
 
-    // No cumulative addition - each upload replaces previous data
-    let finalHours = { ...activityHours };
-    let finalTotal = totalHrs;
+      console.log('Total hours calculated:', totalHrs);
+      
+      // Validate and proportionally scale down if total exceeds 24
+      if (totalHrs > 24) {
+        console.warn(`WARNING: Total hours (${totalHrs.toFixed(2)}) exceeds 24 hours. Data may span multiple days. Scaling down proportionally.`);
+        const scaleFactor = 24 / totalHrs;
+        
+        // Scale down all hour categories proportionally
+        activityHours['Operation Hr'] *= scaleFactor;
+        activityHours['Reduce Hr'] *= scaleFactor;
+        activityHours['Standby Hr'] *= scaleFactor;
+        activityHours['Zero Hr'] *= scaleFactor;
+        activityHours['Repair Hr'] *= scaleFactor;
+        activityHours['AM Hr'] *= scaleFactor;
+        activityHours['Special Hr'] *= scaleFactor;
+        activityHours['Force Majeure Hr'] *= scaleFactor;
+        activityHours['STACKING Hr'] *= scaleFactor;
+        activityHours['Rig Move Hr'] *= scaleFactor;
+        
+        totalHrs = 24;
+        console.log('Hours scaled down proportionally to 24 total hours');
+      }
+
+      // No cumulative addition - each upload replaces previous data
+      finalHours = { ...activityHours };
+      finalTotal = totalHrs;
+    }
 
     // Filter remarks if only Zero Hr and Repair Hr have values
     let finalRemarks = extractedData.extractedData?.Remarks || '';
@@ -868,8 +890,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         force_majeure_hr: finalHours['Force Majeure Hr'],
         stacking_hr: finalHours['STACKING Hr'],
         rig_move_hr: finalHours['Rig Move Hr'],
-        not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
+        not_received_ddor: finalTotal === 0 && hoistTotalAmount === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
         total_hrs: finalTotal,
+        total_amount: hoistTotalAmount, // Store the total amount for Hoist rigs
         remarks: finalRemarks
       }, {
         onConflict: 'rig_number,date',

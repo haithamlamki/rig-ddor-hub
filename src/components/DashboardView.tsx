@@ -148,32 +148,44 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
                            amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
             
+            // Check if this is a Hoist rig
+            const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+            
             // Get rates for this rig
             const rates = ratesMap.get(item.rig_number);
             
-            // Calculate total fuel amount (hours/24 * daily fuel rates)
-            const totalFuelAmount = rates ? (
-              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
-              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
-              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
-              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
-              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
-            ) : 0;
+            let totalAmount = 0;
+            let totalFuelAmount = 0;
             
-            // Calculate total amount (hours * hourly rates + fuel amount)
-            const totalAmount = rates ? (
-              (operationHr * (Number(rates.operation_hr_rate) || 0)) +
-              (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
-              (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
-              (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
-              (repairHr * (Number(rates.repair_hr_rate) || 0)) +
-              (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
-              (specialHr * (Number(rates.special_hr_rate) || 0)) +
-              (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
-              (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
-              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
-              totalFuelAmount
-            ) : 0;
+            if (isHoistRig) {
+              // For Hoist rigs, use the total_amount from database
+              totalAmount = Number(item.total_amount) || 0;
+              totalFuelAmount = 0; // Hoist rigs don't have fuel amounts
+            } else {
+              // For regular rigs, calculate total fuel amount (hours/24 * daily fuel rates)
+              totalFuelAmount = rates ? (
+                ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+                ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+                ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+                ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+                ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+              ) : 0;
+              
+              // Calculate total amount (hours * hourly rates + fuel amount)
+              totalAmount = rates ? (
+                (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+                (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+                (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+                (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+                (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+                (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+                (specialHr * (Number(rates.special_hr_rate) || 0)) +
+                (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+                (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+                (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
+                totalFuelAmount
+              ) : 0;
+            }
             
             return [
               item.rig_number,

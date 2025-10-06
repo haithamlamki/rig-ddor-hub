@@ -32,6 +32,7 @@ export type Database = {
           special_hr: number | null
           stacking_hr: number | null
           standby_hr: number | null
+          total_amount: number | null
           total_hrs: number | null
           updated_at: string
           zero_hr: number | null
@@ -53,6 +54,7 @@ export type Database = {
           special_hr?: number | null
           stacking_hr?: number | null
           standby_hr?: number | null
+          total_amount?: number | null
           total_hrs?: number | null
           updated_at?: string
           zero_hr?: number | null
@@ -74,6 +76,7 @@ export type Database = {
           special_hr?: number | null
           stacking_hr?: number | null
           standby_hr?: number | null
+          total_amount?: number | null
           total_hrs?: number | null
           updated_at?: string
           zero_hr?: number | null
