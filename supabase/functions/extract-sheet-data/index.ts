@@ -81,48 +81,20 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
   console.log('Extracting activity hours from sheet data...');
   
-  // Helper function to check if a value looks like a time
-  const looksLikeTime = (val: any): boolean => {
-    if (typeof val === 'number' && val >= 0 && val < 1) return true; // Excel decimal time
-    if (typeof val === 'string') {
-      const str = val.trim();
-      return /^\d{1,2}:\d{2}/.test(str) || str === '0:00' || str === '00:00';
-    }
-    return false;
-  };
-
-  // Try to find activity table with headers first
+  // Find the activity table by looking for "From", "TO", "Dur." headers
   let activityTableStartRow = -1;
   for (let i = 0; i < sheetData.length; i++) {
     const row = sheetData[i];
     if (row && typeof row === 'object') {
+      // Check if this row contains the headers (From, TO, Dur.)
       const col0 = String((row as any)['__EMPTY'] || '').toLowerCase().trim();
       const col1 = String((row as any)['__EMPTY_1'] || '').toLowerCase().trim();
       const col2 = String((row as any)['__EMPTY_2'] || '').toLowerCase().trim();
       
       if (col0 === 'from' && col1 === 'to' && col2.includes('dur')) {
-        activityTableStartRow = i + 1;
-        console.log('Found activity table with headers at row:', activityTableStartRow);
+        activityTableStartRow = i + 1; // Start from next row (data rows)
+        console.log('Found activity table at row:', activityTableStartRow);
         break;
-      }
-    }
-  }
-
-  // If no headers found, look for rows that start with time patterns
-  if (activityTableStartRow === -1) {
-    for (let i = 0; i < sheetData.length; i++) {
-      const row = sheetData[i];
-      if (row && typeof row === 'object') {
-        const col0 = (row as any)['__EMPTY'];
-        const col1 = (row as any)['__EMPTY_1'];
-        const col2 = (row as any)['__EMPTY_2'];
-        
-        // Check if this looks like an activity data row (time values in first 3 columns)
-        if (looksLikeTime(col0) && looksLikeTime(col1) && looksLikeTime(col2)) {
-          activityTableStartRow = i;
-          console.log('Found activity table without headers at row:', activityTableStartRow);
-          break;
-        }
       }
     }
   }
@@ -151,16 +123,6 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     if (fromStr.includes('00:00 - to -')) {
       console.log('Reached next day boundary, stopping extraction at row:', i);
       break;
-    }
-    
-    // Check if this still looks like a time value (to detect when table ends)
-    if (!looksLikeTime(fromValue)) {
-      // If we were processing rows and now hit a non-time value, we're done
-      if (i > activityTableStartRow + 3) {
-        console.log('End of activity table detected at row:', i);
-        break;
-      }
-      continue;
     }
 
     // Column __EMPTY_2 = Duration (Dur.)
