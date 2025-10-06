@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 interface DashboardData {
   date: string;
@@ -39,67 +40,45 @@ const RIGS = [
   "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
 
-// Generate fixed monthly structure for October 2025
-const generateMonthlyData = (): DashboardData[] => {
+// Generate data structure for all rigs
+const generateRigData = (dateStr: string): DashboardData[] => {
   const data: DashboardData[] = [];
-  const daysInOctober = 31;
   
-  for (let day = 1; day <= daysInOctober; day++) {
-    const dateStr = `${day.toString().padStart(2, '0')}-Oct-25`;
-    
-    for (const rig of RIGS) {
-      data.push({
-        date: dateStr,
-        rig: rig,
-        client: "",
-        operationHr: 0,
-        reduceHr: 0,
-        standbyHr: 0,
-        zeroHr: 0,
-        repairHr: 0,
-        amHr: 0,
-        specialHr: 0,
-        forceMajeureHr: 0,
-        stackingHr: 0,
-        rigMoveHr: 0,
-        notReceivedDDOR: "",
-        totalHrs: 0,
-        remarks: "",
-      });
-    }
-  }
-  
-  // Add some sample data for demonstration
-  const sampleIndex1 = data.findIndex(d => d.date === "05-Oct-25" && d.rig === "211");
-  if (sampleIndex1 >= 0) {
-    data[sampleIndex1] = {
-      ...data[sampleIndex1],
-      client: "WJO",
-      operationHr: 24.0,
-      totalHrs: 24.0,
-      remarks: "PJSM. Perform FIT at 7\" casing window. Trip out of hole with milling assy.",
-    };
-  }
-  
-  const sampleIndex2 = data.findIndex(d => d.date === "05-Oct-25" && d.rig === "206");
-  if (sampleIndex2 >= 0) {
-    data[sampleIndex2] = {
-      ...data[sampleIndex2],
-      client: "Oxy",
-      operationHr: 24.0,
-      totalHrs: 24.0,
-      remarks: "Drill 6 1/8\" lateral from 6750 ft to 8600 ft",
-    };
+  for (const rig of RIGS) {
+    data.push({
+      date: dateStr,
+      rig: rig,
+      client: "",
+      operationHr: 0,
+      reduceHr: 0,
+      standbyHr: 0,
+      zeroHr: 0,
+      repairHr: 0,
+      amHr: 0,
+      specialHr: 0,
+      forceMajeureHr: 0,
+      stackingHr: 0,
+      rigMoveHr: 0,
+      notReceivedDDOR: "",
+      totalHrs: 0,
+      remarks: "",
+    });
   }
   
   return data;
 };
 
-const MONTHLY_DATA = generateMonthlyData();
+interface DashboardViewProps {
+  selectedDate?: Date;
+}
 
-const DashboardView = () => {
+const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [data] = useState<DashboardData[]>(MONTHLY_DATA);
+  
+  // Use selected date or default to current date
+  const displayDate = selectedDate || new Date();
+  const dateStr = format(displayDate, "dd-MMM-yy");
+  const data = generateRigData(dateStr);
 
   const filteredData = data.filter(
     (row) =>

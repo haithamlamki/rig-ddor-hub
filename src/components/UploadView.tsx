@@ -18,6 +18,8 @@ interface UploadedFile {
 
 interface UploadViewProps {
   onConfigClick: (rig: string) => void;
+  selectedDate: Date | undefined;
+  onDateChange: (date: Date | undefined) => void;
 }
 
 const RIGS = [
@@ -27,9 +29,8 @@ const RIGS = [
   "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
 
-const UploadView = ({ onConfigClick }: UploadViewProps) => {
+const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewProps) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [extractionDate, setExtractionDate] = useState<Date>();
   const { toast } = useToast();
 
   const handleFileUpload = async (rig: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,18 +154,18 @@ const UploadView = ({ onConfigClick }: UploadViewProps) => {
                   variant="outline"
                   className={cn(
                     "w-[240px] justify-start text-left font-normal",
-                    !extractionDate && "text-muted-foreground"
+                    !selectedDate && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {extractionDate ? format(extractionDate, "PPP") : <span>Pick a date</span>}
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
                 <Calendar
                   mode="single"
-                  selected={extractionDate}
-                  onSelect={setExtractionDate}
+                  selected={selectedDate}
+                  onSelect={onDateChange}
                   initialFocus
                   className="pointer-events-auto"
                 />

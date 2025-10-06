@@ -7,6 +7,7 @@ import ConfigView from "@/components/ConfigView";
 const Index = () => {
   const [activeView, setActiveView] = useState<"upload" | "dashboard" | "config">("upload");
   const [selectedRig, setSelectedRig] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const handleConfigClick = (rig: string) => {
     setSelectedRig(rig);
@@ -18,8 +19,8 @@ const Index = () => {
       <Header activeView={activeView} onViewChange={setActiveView} />
       
       <main>
-        {activeView === "upload" && <UploadView onConfigClick={handleConfigClick} />}
-        {activeView === "dashboard" && <DashboardView />}
+        {activeView === "upload" && <UploadView onConfigClick={handleConfigClick} selectedDate={selectedDate} onDateChange={setSelectedDate} />}
+        {activeView === "dashboard" && <DashboardView selectedDate={selectedDate} />}
         {activeView === "config" && <ConfigView />}
       </main>
 
