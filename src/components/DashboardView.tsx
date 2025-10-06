@@ -146,23 +146,28 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
             return mapping?.fixedValue || "";
           };
+          
+          const getFixedNumber = (columnName: string) => {
+            const val = getFixedValue(columnName);
+            return val ? Number(val) : 0;
+          };
 
           return {
             date: format(displayDate, "dd-MMM-yy"),
             rig: getFixedValue("Rig") || rig,
             client: getFixedValue("Client"),
-            operationHr: 0,
-            reduceHr: 0,
-            standbyHr: 0,
-            zeroHr: 0,
-            repairHr: 0,
-            amHr: 0,
-            specialHr: 0,
-            forceMajeureHr: 0,
-            stackingHr: 0,
-            rigMoveHr: 0,
+            operationHr: getFixedNumber("Operation Hr"),
+            reduceHr: getFixedNumber("Reduce Hr"),
+            standbyHr: getFixedNumber("Standby Hr"),
+            zeroHr: getFixedNumber("Zero Hr"),
+            repairHr: getFixedNumber("Repair Hr"),
+            amHr: getFixedNumber("AM Hr"),
+            specialHr: getFixedNumber("Special Hr"),
+            forceMajeureHr: getFixedNumber("Force Majeure Hr"),
+            stackingHr: getFixedNumber("STACKING Hr"),
+            rigMoveHr: getFixedNumber("Rig Move Hr"),
             notReceivedDDOR: getFixedValue("Not Received DDOR"),
-            totalHrs: 0,
+            totalHrs: getFixedNumber("Total Hr.s"),
             remarks: getFixedValue("Remarks"),
           };
         });
