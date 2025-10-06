@@ -762,8 +762,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
     let finalHours = { ...activityHours };
     let finalTotal = totalHrs;
 
-    // If record exists and current total < 24, add to existing hours (cumulative upload)
-    if (existingRecord && totalHrs < 24) {
+    // If record exists, add to existing hours (cumulative upload)
+    if (existingRecord) {
       const existingTotal = Number(existingRecord.total_hrs || 0);
       
       // Add new hours to existing hours
