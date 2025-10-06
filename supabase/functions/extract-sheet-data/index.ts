@@ -74,7 +74,14 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     
     // Skip section headers and empty rows
     const fromStr = String(fromValue).trim();
-    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('00:00 - to -')) continue;
+    if (fromStr.length === 0 || fromStr.includes('Prepared by')) continue;
+    
+    // Stop processing if we encounter a day separator (next day boundary)
+    // This prevents extracting data beyond the first 24-hour period
+    if (fromStr.includes('00:00 - to -')) {
+      console.log('Reached next day boundary, stopping extraction at row:', i);
+      break;
+    }
 
     // Column __EMPTY_2 = Duration (Dur.)
     const durationValue = (row as any)['__EMPTY_2'];
