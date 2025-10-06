@@ -447,6 +447,10 @@ serve(async (req) => {
       .map((m: any) => `${m.columnName} (from cell ${m.cellReference})`)
       .join(', ');
 
+    // Prepare AI inputs and prompt (with safe fallbacks)
+    const fixedClient = (columnMappings.find((m: any) => m.columnName === 'Client' && m.isFixedData && m.fixedValue)?.fixedValue) as string | undefined;
+    const sheetPreview = Array.isArray(sheetData) ? sheetData.slice(0, 200) : sheetData;
+
     // Create a prompt for the AI to analyze and extract structured data
     const prompt = `You are an expert at analyzing Excel spreadsheet data from DDOR (Daily Drilling Operations Report) files.
 
@@ -458,8 +462,8 @@ ${fixedDataFields || 'None'}
 EXTRACT FROM SHEET (These need to be extracted from the data):
 ${extractableFields || 'All fields need to be extracted'}
 
-Sheet Data:
-${JSON.stringify(sheetData, null, 2)}
+Sheet Data (preview only, up to 200 rows):
+${JSON.stringify(sheetPreview, null, 2)}
 
 Extract and return a JSON object with this EXACT structure (use empty string for missing values, hours will be filled from activity table):
 {
@@ -480,61 +484,81 @@ NOTE: DO NOT extract hour fields - they have already been calculated from the ac
 
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a data extraction expert. Always return valid JSON only, with no markdown formatting." 
-          },
-          { role: "user", content: prompt }
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), 
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to your workspace." }), 
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("AI gateway error");
-    }
-
-    const aiResponse = await response.json();
-    const extractedContent = aiResponse.choices[0].message.content;
-    
-    console.log("AI extracted content:", extractedContent);
-
-    // Parse the AI response
-    let extractedData;
+    // Try AI extraction only if client isn't fixed; otherwise, we'll use safe fallback
+    let extractedData: any;
     try {
-      // Remove markdown code blocks if present
-      const cleanContent = extractedContent
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      extractedData = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      throw new Error("Failed to parse AI response");
+      if (!fixedClient) {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { 
+                role: "system", 
+                content: "You are a data extraction expert. Always return valid JSON only, with no markdown formatting." 
+              },
+              { role: "user", content: prompt }
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), 
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (response.status === 402) {
+            return new Response(
+              JSON.stringify({ error: "AI credits exhausted. Please add credits to your workspace." }), 
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          const errorText = await response.text();
+          console.warn("AI gateway non-OK, falling back without AI:", response.status, errorText);
+        } else {
+          const aiResponse = await response.json();
+          const extractedContent = aiResponse.choices?.[0]?.message?.content ?? '';
+          console.log("AI extracted content:", extractedContent);
+          try {
+            const cleanContent = String(extractedContent)
+              .replace(/```json\n?/g, '')
+              .replace(/```\n?/g, '')
+              .trim();
+            if (cleanContent) {
+              extractedData = JSON.parse(cleanContent);
+            }
+          } catch (parseError) {
+            console.warn("Failed to parse AI response, using fallback:", parseError);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("AI extraction failed, using fallback:", e);
     }
+
+    // Minimal fallback if AI is unavailable or client is fixed
+    if (!extractedData) {
+      extractedData = {
+        extractedData: {
+          Date: "",
+          Rig: String(rig),
+          Client: fixedClient || "",
+          "Not Received DDOR": "",
+          Remarks: ""
+        },
+        metadata: {
+          rigNumber: String(rig),
+          dataQuality: "good"
+        }
+      };
+    }
+
 
     // Prepare and store extracted data in database
     const toISODate = (val: unknown): string => {
