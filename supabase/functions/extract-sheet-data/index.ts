@@ -14,6 +14,8 @@ const rateTypeMapping: Record<string, string> = {
   'OP RATE': 'Operation Hr',
   'OP-RATE': 'Operation Hr',
   'O/RATE': 'Operation Hr',
+  'ORATE': 'Operation Hr',
+  'O': 'Operation Hr',
   'OPERATION': 'Operation Hr',
   'O RATE': 'Operation Hr',
   'OPERATION HOURS': 'Operation Hr',
@@ -81,21 +83,46 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
   console.log('Extracting activity hours from sheet data...');
   
-  // Find the activity table by looking for "From", "TO", "Dur." headers
+  // Helper function to check if a value looks like a time (HH:MM format or decimal)
+  const looksLikeTime = (val: any): boolean => {
+    if (val === null || val === undefined) return false;
+    const str = String(val).trim();
+    // Check for HH:MM format or decimal number
+    return /^\d{1,2}:\d{2}$/.test(str) || (!isNaN(parseFloat(str)) && parseFloat(str) < 1);
+  };
+
+  // Find the activity table by looking for "From", "TO", "Dur." headers OR time pattern rows
   let activityTableStartRow = -1;
+  let hasHeaders = false;
+  
   for (let i = 0; i < sheetData.length; i++) {
     const row = sheetData[i];
-    if (row && typeof row === 'object') {
-      // Check if this row contains the headers (From, TO, Dur.)
-      const col0 = String((row as any)['__EMPTY'] || '').toLowerCase().trim();
-      const col1 = String((row as any)['__EMPTY_1'] || '').toLowerCase().trim();
-      const col2 = String((row as any)['__EMPTY_2'] || '').toLowerCase().trim();
-      
-      if (col0 === 'from' && col1 === 'to' && col2.includes('dur')) {
-        activityTableStartRow = i + 1; // Start from next row (data rows)
-        console.log('Found activity table at row:', activityTableStartRow);
-        break;
-      }
+    if (!row || typeof row !== 'object') continue;
+
+    // Check if this row contains the headers (From, TO, Dur.)
+    const col0 = String((row as any)['__EMPTY'] || '').toLowerCase().trim();
+    const col1 = String((row as any)['__EMPTY_1'] || '').toLowerCase().trim();
+    const col2 = String((row as any)['__EMPTY_2'] || '').toLowerCase().trim();
+    
+    if (col0 === 'from' && col1 === 'to' && col2.includes('dur')) {
+      activityTableStartRow = i + 1; // Start from next row (data rows)
+      hasHeaders = true;
+      console.log('Found activity table with headers at row:', activityTableStartRow);
+      break;
+    }
+    
+    // Alternative: Look for rows with time patterns (for sheets without headers)
+    // Check if first 3 columns look like times (start, end, duration)
+    const val0 = (row as any)['__EMPTY'];
+    const val1 = (row as any)['__EMPTY_1'];
+    const val2 = (row as any)['__EMPTY_2'];
+    
+    if (looksLikeTime(val0) && looksLikeTime(val1) && looksLikeTime(val2)) {
+      // Found a row that looks like time data
+      activityTableStartRow = i;
+      hasHeaders = false;
+      console.log('Found activity table without headers at row:', activityTableStartRow);
+      break;
     }
   }
 
@@ -117,6 +144,12 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     // Skip section headers and empty rows
     const fromStr = String(fromValue).trim();
     if (fromStr.length === 0 || fromStr.includes('Prepared by')) continue;
+    
+    // Stop if we don't see time-like data anymore (indicates end of activity table)
+    if (!looksLikeTime(fromValue) && fromStr.length > 0) {
+      console.log('End of activity table detected at row:', i);
+      break;
+    }
     
     // Stop processing if we encounter a day separator (next day boundary)
     // This prevents extracting data beyond the first 24-hour period
@@ -153,13 +186,21 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
     if (hours === 0) continue;
 
-    // Look for rate type in the last columns (__EMPTY_9, __EMPTY_8, etc.)
+    // Look for rate type in ALL columns from right to left
     let rateType = '';
-    for (let colIdx = 9; colIdx >= 3; colIdx--) {
+    for (let colIdx = 12; colIdx >= 3; colIdx--) {
       const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
       const cellValue = String((row as any)[colName] || '').trim().toUpperCase();
+      // Clean up the value - remove extra characters
+      const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
+      
       if (cellValue && rateTypeMapping[cellValue]) {
         rateType = cellValue;
+        break;
+      }
+      // Also try cleaned version for matches like "O/Rate" -> "O" or "ORATE"
+      if (cleanedValue && rateTypeMapping[cleanedValue]) {
+        rateType = cleanedValue;
         break;
       }
     }
@@ -169,7 +210,11 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       if (targetField) {
         aggregatedHours[targetField] += hours;
         console.log(`Added ${hours.toFixed(2)} hours to ${targetField} from rate type ${rateType}`);
+      } else {
+        console.log(`Warning: Found hours ${hours.toFixed(2)} but rate type ${rateType} not in mapping`);
       }
+    } else if (hours > 0) {
+      console.log(`Warning: Found ${hours.toFixed(2)} hours but no matching rate type in row ${i}`);
     }
   }
 
