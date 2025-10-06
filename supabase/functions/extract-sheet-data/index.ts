@@ -507,9 +507,10 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
 
     console.log('Total hours calculated:', totalHrs);
 
+    // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
-      .insert({
+      .upsert({
         rig_number: rig,
         date: dateStr,
         client: extractedData.extractedData?.Client || '',
@@ -526,6 +527,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
         total_hrs: totalHrs,
         remarks: extractedData.extractedData?.Remarks || ''
+      }, {
+        onConflict: 'rig_number,date',
+        ignoreDuplicates: false
       });
 
     if (insertError) {
