@@ -449,6 +449,12 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       hasSeenLateEvening = true;
     }
     
+    // Skip rows that start at or after 06:00
+    if (startTimeHours >= 6) {
+      console.log(`Skipping row starting at ${startTimeHours}:00 (06:00 or later) at row:`, i);
+      continue;
+    }
+    
     // Track maximum time seen
     if (startTimeHours > maxTimeSeen) {
       maxTimeSeen = startTimeHours;
