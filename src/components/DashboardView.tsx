@@ -229,7 +229,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Operation Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{totalOperationHrs.toFixed(1)}</div>
+            <div className="text-3xl font-bold text-success">{totalOperationHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Total productive time</p>
           </CardContent>
         </Card>
@@ -239,7 +239,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Reduced Hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-warning">{totalReduceHrs.toFixed(1)}</div>
+            <div className="text-3xl font-bold text-warning">{totalReduceHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Non-productive time</p>
           </CardContent>
         </Card>
@@ -312,18 +312,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                       </Badge>
                     </TableCell>
                     <TableCell>{row.client}</TableCell>
-                    <TableCell className="text-right">{row.operationHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.reduceHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.standbyHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.zeroHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.repairHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.amHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.specialHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.forceMajeureHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.stackingHr.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{row.rigMoveHr.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{row.operationHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.reduceHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.standbyHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.zeroHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.repairHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.amHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.specialHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.forceMajeureHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.stackingHr.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{row.rigMoveHr.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{row.notReceivedDDOR}</TableCell>
-                    <TableCell className="text-right font-semibold">{row.totalHrs.toFixed(1)}</TableCell>
+                    <TableCell className="text-right font-semibold">{row.totalHrs.toFixed(2)}</TableCell>
                     <TableCell className="max-w-md truncate" title={row.remarks}>
                       {row.remarks}
                     </TableCell>
