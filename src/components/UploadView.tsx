@@ -31,6 +31,7 @@ const RIGS = [
 
 const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewProps) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFileUpload = async (rig: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +50,40 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
     for (const uploadedFile of newFiles) {
       await processFile(uploadedFile);
     }
+  };
+
+  const handleDrop = async (rig: string, event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(null);
+
+    const files = event.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
+      file,
+      rig,
+      status: "pending",
+    }));
+
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+
+    // Process files
+    for (const uploadedFile of newFiles) {
+      await processFile(uploadedFile);
+    }
+  };
+
+  const handleDragOver = (rig: string, event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(rig);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(null);
   };
 
   const processFile = async (uploadedFile: UploadedFile) => {
@@ -188,7 +223,15 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
                   </div>
 
                   <div className="flex-1">
-                    <div className="border-2 border-dashed border-border rounded-lg px-6 py-3 text-center hover:border-primary transition-colors">
+                    <div 
+                      className={cn(
+                        "border-2 border-dashed rounded-lg px-6 py-3 text-center transition-colors",
+                        dragOver === rig ? "border-primary bg-primary/5" : "border-border hover:border-primary"
+                      )}
+                      onDrop={(e) => handleDrop(rig, e)}
+                      onDragOver={(e) => handleDragOver(rig, e)}
+                      onDragLeave={handleDragLeave}
+                    >
                       <input
                         type="file"
                         id={`file-upload-${rig}`}
