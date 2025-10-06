@@ -146,6 +146,64 @@ function findBestRateTypeMatch(input: string): string | null {
   return null;
 }
 
+// Function to extract total amount from Hoist billing sheets
+function extractHoistTotalAmount(sheetData: any[]): number {
+  console.log('Extracting total amount for Hoist rig from billing sheet...');
+  
+  let totalAmount = 0;
+  let foundAmountColumn = false;
+  
+  // Look for "Amount" column in the sheet
+  for (const row of sheetData) {
+    if (!row || typeof row !== 'object') continue;
+    
+    // Check all columns for "Amount" values
+    for (const [key, value] of Object.entries(row)) {
+      if (!value) continue;
+      
+      // Check if this is an Amount column header
+      const keyStr = String(key).toLowerCase();
+      const valStr = String(value).toLowerCase();
+      
+      if (keyStr.includes('amount') || valStr === 'amount') {
+        foundAmountColumn = true;
+        continue;
+      }
+      
+      // Try to parse amount values (format: $10,626.00 or 10626.00)
+      const amountStr = String(value).trim();
+      // Match dollar amounts like $10,626.00 or 10626.00
+      const amountMatch = amountStr.match(/\$?\s*([\d,]+\.?\d*)/);
+      
+      if (amountMatch) {
+        const numStr = amountMatch[1].replace(/,/g, '');
+        const amount = parseFloat(numStr);
+        
+        // Only count significant amounts (> $1) to avoid counting other numeric data
+        if (!isNaN(amount) && amount > 1) {
+          // Additional validation: check if row contains other billing indicators
+          const rowStr = JSON.stringify(row).toLowerCase();
+          const hasBillingIndicators = 
+            rowStr.includes('ptw') || 
+            rowStr.includes('held') || 
+            rowStr.includes('r/u') || 
+            rowStr.includes('rig') ||
+            rowStr.includes('hoist') ||
+            amountStr.startsWith('$');
+          
+          if (hasBillingIndicators || foundAmountColumn) {
+            totalAmount += amount;
+            console.log(`Found amount: $${amount.toFixed(2)} (running total: $${totalAmount.toFixed(2)})`);
+          }
+        }
+      }
+    }
+  }
+  
+  console.log(`Total amount extracted: $${totalAmount.toFixed(2)}`);
+  return totalAmount;
+}
+
 // Function to extract and aggregate activity table hours
 function extractActivityHours(sheetData: any[]): Record<string, number> {
   const aggregatedHours: Record<string, number> = {
@@ -542,9 +600,21 @@ serve(async (req) => {
     
     console.log(`Processing sheet data for rig ${rig}...`);
 
-    // First, extract activity table hours
-    console.log('Extracting activity table hours...');
-    const activityHours = extractActivityHours(sheetData);
+    // Check if this is a Hoist rig (Hoist 1, Hoist 2, etc.)
+    const isHoistRig = String(rig).toLowerCase().includes('hoist');
+    
+    let hoistTotalAmount = 0;
+    let activityHours: Record<string, number> = {};
+    
+    if (isHoistRig) {
+      // For Hoist rigs, extract total billing amount instead of hours
+      console.log('Detected Hoist rig - extracting total billing amount...');
+      hoistTotalAmount = extractHoistTotalAmount(sheetData);
+    } else {
+      // For regular rigs, extract activity table hours
+      console.log('Extracting activity table hours...');
+      activityHours = extractActivityHours(sheetData);
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
