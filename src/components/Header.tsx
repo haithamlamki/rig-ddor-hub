@@ -23,20 +23,20 @@ const Header = ({ activeView, onViewChange }: HeaderProps) => {
           
           <nav className="flex gap-2">
             <Button
-              variant={activeView === "upload" ? "default" : "ghost"}
-              onClick={() => onViewChange("upload")}
-              className="gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Upload
-            </Button>
-            <Button
               variant={activeView === "dashboard" ? "default" : "ghost"}
               onClick={() => onViewChange("dashboard")}
               className="gap-2"
             >
               <Database className="h-4 w-4" />
               Dashboard
+            </Button>
+            <Button
+              variant={activeView === "upload" ? "default" : "ghost"}
+              onClick={() => onViewChange("upload")}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Upload
             </Button>
             <Button
               variant={activeView === "config" ? "default" : "ghost"}

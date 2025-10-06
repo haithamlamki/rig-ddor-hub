@@ -5,7 +5,7 @@ import DashboardView from "@/components/DashboardView";
 import ConfigView from "@/components/ConfigView";
 
 const DDORDataHub = () => {
-  const [activeView, setActiveView] = useState<"upload" | "dashboard" | "config">("upload");
+  const [activeView, setActiveView] = useState<"upload" | "dashboard" | "config">("dashboard");
   const [selectedRig, setSelectedRig] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
