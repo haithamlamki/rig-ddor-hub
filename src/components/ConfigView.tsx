@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { Save, Settings2 } from "lucide-react";
+import { Save, Settings2, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -13,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -32,6 +40,7 @@ interface ColumnMapping {
 interface RigConfig {
   rigNumber: string;
   sheetName: string;
+  extractionDate: Date | undefined;
   columnMappings: ColumnMapping[];
 }
 
@@ -72,6 +81,7 @@ const generateAllConfigs = (): RigConfig[] => {
   return RIGS.map(rig => ({
     rigNumber: rig,
     sheetName: "DAILY DRILLING REPORT",
+    extractionDate: undefined,
     columnMappings: DEFAULT_MAPPINGS.map(m => ({ ...m }))
   }));
 };
@@ -87,6 +97,14 @@ const ConfigView = () => {
     setConfigs((prev) =>
       prev.map((config) =>
         config.rigNumber === selectedRig ? { ...config, sheetName: value } : config
+      )
+    );
+  };
+
+  const handleDateUpdate = (date: Date | undefined) => {
+    setConfigs((prev) =>
+      prev.map((config) =>
+        config.rigNumber === selectedRig ? { ...config, extractionDate: date } : config
       )
     );
   };
@@ -154,6 +172,7 @@ const ConfigView = () => {
           ? {
               rigNumber: c.rigNumber,
               sheetName: "DAILY DRILLING REPORT",
+              extractionDate: undefined,
               columnMappings: DEFAULT_MAPPINGS.map(m => ({ ...m }))
             }
           : c
@@ -249,6 +268,40 @@ const ConfigView = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     The name of the worksheet to extract data from
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Extraction Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !currentConfig.extractionDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {currentConfig.extractionDate ? (
+                          format(currentConfig.extractionDate, "PPP")
+                        ) : (
+                          <span>Pick extraction date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={currentConfig.extractionDate}
+                        onSelect={handleDateUpdate}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">
+                    This date will be used for the Date column in the dashboard
                   </p>
                 </div>
 
