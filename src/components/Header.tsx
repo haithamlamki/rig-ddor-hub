@@ -1,9 +1,9 @@
-import { Database, Upload, Settings } from "lucide-react";
+import { Database, Upload, Settings, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
-  activeView: "upload" | "dashboard" | "config";
-  onViewChange: (view: "upload" | "dashboard" | "config") => void;
+  activeView: "upload" | "dashboard" | "config" | "npt";
+  onViewChange: (view: "upload" | "dashboard" | "config" | "npt") => void;
 }
 
 const Header = ({ activeView, onViewChange }: HeaderProps) => {
@@ -16,8 +16,8 @@ const Header = ({ activeView, onViewChange }: HeaderProps) => {
               <Database className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">DDOR DataHub</h1>
-              <p className="text-sm text-muted-foreground">Drilling Operations Reporting System</p>
+              <h1 className="text-2xl font-bold text-foreground">Operation Data Hub</h1>
+              <p className="text-sm text-muted-foreground">Drilling Operations Management System</p>
             </div>
           </div>
           
@@ -45,6 +45,14 @@ const Header = ({ activeView, onViewChange }: HeaderProps) => {
             >
               <Settings className="h-4 w-4" />
               Config
+            </Button>
+            <Button
+              variant={activeView === "npt" ? "default" : "ghost"}
+              onClick={() => onViewChange("npt")}
+              className="gap-2"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              NPT
             </Button>
           </nav>
         </div>
