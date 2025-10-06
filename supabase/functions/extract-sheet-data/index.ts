@@ -26,6 +26,7 @@ const rateTypeMapping: Record<string, string> = {
   'OPRETION RATE': 'Operation Hr',  // Handle common typo
   'OPRETION': 'Operation Hr',
   'OPRATION': 'Operation Hr',  // Handle common typo - missing E
+  'OPRATION RATE': 'Operation Hr',  // Handle common typo with RATE
   'O/ RTAE': 'Operation Hr',  // Handle transposed letters variant
   'O RTAE': 'Operation Hr',   // Without slash variant
   'ORTAE': 'Operation Hr',    // Cleaned string variant
@@ -172,7 +173,8 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const compact = text.replace(/\s+/g, ' ');
     const fromStr = fromH.toString().padStart(2, '0');
     const toStr = toH.toString().padStart(2, '0');
-    const re = new RegExp(`\\b${fromStr}:?00\\s*-\\s*TO\\s*-\\s*${toStr}:?00\\b`);
+    // Match patterns like "00:00 - TO - 06:00" or "00:00 - 06:00"
+    const re = new RegExp(`\\b${fromStr}:?00\\s*-\\s*(?:TO\\s*-\\s*)?${toStr}:?00\\b`);
     return re.test(compact);
   };
   const hasFullDayBanner = (): boolean => {
