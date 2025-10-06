@@ -173,12 +173,12 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
 
-    // Check if this row contains the headers (From, TO, Dur.)
-    const col0 = String((row as any)['__EMPTY'] || '').toLowerCase().trim();
-    const col1 = String((row as any)['__EMPTY_1'] || '').toLowerCase().trim();
-    const col2 = String((row as any)['__EMPTY_2'] || '').toLowerCase().trim();
+    // Check if this row contains the headers (From, TO, Dur.) - case insensitive
+    const col0 = String((row as any)['__EMPTY'] || '').trim();
+    const col1 = String((row as any)['__EMPTY_1'] || '').trim();
+    const col2 = String((row as any)['__EMPTY_2'] || '').trim();
     
-    if (col0 === 'from' && col1 === 'to' && col2.includes('dur')) {
+    if (col0.toLowerCase() === 'from' && col1.toLowerCase() === 'to' && col2.toLowerCase().includes('dur')) {
       activityTableStartRow = i + 1; // Start from next row (data rows)
       hasHeaders = true;
       console.log('Found activity table with headers at row:', activityTableStartRow);
