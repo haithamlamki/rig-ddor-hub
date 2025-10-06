@@ -317,24 +317,26 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </div>
           
           {/* Date Selector */}
-          <div className="flex flex-wrap gap-2">
-            {datesInMonth.map((date) => {
-              const isSelected = format(date, "yyyy-MM-dd") === format(selectedDateFilter, "yyyy-MM-dd");
-              return (
-                <Button
-                  key={date.toISOString()}
-                  variant={isSelected ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedDateFilter(date)}
-                  className={cn(
-                    "min-w-[3rem]",
-                    isSelected && "bg-primary text-primary-foreground"
-                  )}
-                >
-                  {format(date, "d")}
-                </Button>
-              );
-            })}
+          <div className="overflow-x-auto">
+            <div className="flex gap-2 min-w-max pb-2">
+              {datesInMonth.map((date) => {
+                const isSelected = format(date, "yyyy-MM-dd") === format(selectedDateFilter, "yyyy-MM-dd");
+                return (
+                  <Button
+                    key={date.toISOString()}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedDateFilter(date)}
+                    className={cn(
+                      "min-w-[3rem] flex-shrink-0",
+                      isSelected && "bg-primary text-primary-foreground"
+                    )}
+                  >
+                    {format(date, "d")}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
