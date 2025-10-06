@@ -751,56 +751,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       console.log('Hours scaled down proportionally to 24 total hours');
     }
 
-    // Check if record exists for this rig and date
-    const { data: existingRecord } = await supabase
-      .from('extracted_ddor_data')
-      .select('*')
-      .eq('rig_number', rig)
-      .eq('date', dateStr)
-      .single();
-
+    // No cumulative addition - each upload replaces previous data
     let finalHours = { ...activityHours };
     let finalTotal = totalHrs;
-
-    // If record exists, add to existing hours (cumulative upload)
-    if (existingRecord) {
-      const existingTotal = Number(existingRecord.total_hrs || 0);
-      
-      // Add new hours to existing hours
-      finalHours['Operation Hr'] += Number(existingRecord.operation_hr || 0);
-      finalHours['Reduce Hr'] += Number(existingRecord.reduce_hr || 0);
-      finalHours['Standby Hr'] += Number(existingRecord.standby_hr || 0);
-      finalHours['Zero Hr'] += Number(existingRecord.zero_hr || 0);
-      finalHours['Repair Hr'] += Number(existingRecord.repair_hr || 0);
-      finalHours['AM Hr'] += Number(existingRecord.am_hr || 0);
-      finalHours['Special Hr'] += Number(existingRecord.special_hr || 0);
-      finalHours['Force Majeure Hr'] += Number(existingRecord.force_majeure_hr || 0);
-      finalHours['STACKING Hr'] += Number(existingRecord.stacking_hr || 0);
-      finalHours['Rig Move Hr'] += Number(existingRecord.rig_move_hr || 0);
-      
-      finalTotal = existingTotal + totalHrs;
-      
-      console.log(`Cumulative upload detected. Adding ${totalHrs.toFixed(2)} hours to existing ${existingTotal.toFixed(2)} hours. New total: ${finalTotal.toFixed(2)}`);
-      
-      // Scale down if combined total exceeds 24
-      if (finalTotal > 24) {
-        console.warn(`Combined total (${finalTotal.toFixed(2)}) exceeds 24 hours. Scaling down proportionally.`);
-        const scaleFactor = 24 / finalTotal;
-        
-        finalHours['Operation Hr'] *= scaleFactor;
-        finalHours['Reduce Hr'] *= scaleFactor;
-        finalHours['Standby Hr'] *= scaleFactor;
-        finalHours['Zero Hr'] *= scaleFactor;
-        finalHours['Repair Hr'] *= scaleFactor;
-        finalHours['AM Hr'] *= scaleFactor;
-        finalHours['Special Hr'] *= scaleFactor;
-        finalHours['Force Majeure Hr'] *= scaleFactor;
-        finalHours['STACKING Hr'] *= scaleFactor;
-        finalHours['Rig Move Hr'] *= scaleFactor;
-        
-        finalTotal = 24;
-      }
-    }
 
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
