@@ -967,28 +967,60 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
       }
     }
 
+    // Check if a record already exists for this rig and date
+    const { data: existingRecord } = await supabase
+      .from('extracted_ddor_data')
+      .select('*')
+      .eq('rig_number', rig)
+      .eq('date', dateStr)
+      .single();
+
+    // If record exists, add hours to existing values (accumulate)
+    // If not, use the extracted hours as-is
+    const recordToInsert = existingRecord ? {
+      rig_number: rig,
+      date: dateStr,
+      client: extractedData.extractedData?.Client || existingRecord.client || '',
+      operation_hr: (existingRecord.operation_hr || 0) + finalHours['Operation Hr'],
+      reduce_hr: (existingRecord.reduce_hr || 0) + finalHours['Reduce Hr'],
+      standby_hr: (existingRecord.standby_hr || 0) + finalHours['Standby Hr'],
+      zero_hr: (existingRecord.zero_hr || 0) + finalHours['Zero Hr'],
+      repair_hr: (existingRecord.repair_hr || 0) + finalHours['Repair Hr'],
+      am_hr: (existingRecord.am_hr || 0) + finalHours['AM Hr'],
+      special_hr: (existingRecord.special_hr || 0) + finalHours['Special Hr'],
+      force_majeure_hr: (existingRecord.force_majeure_hr || 0) + finalHours['Force Majeure Hr'],
+      stacking_hr: (existingRecord.stacking_hr || 0) + finalHours['STACKING Hr'],
+      rig_move_hr: (existingRecord.rig_move_hr || 0) + finalHours['Rig Move Hr'],
+      not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
+      total_hrs: (existingRecord.total_hrs || 0) + finalTotal,
+      total_amount: 0, // Regular rigs don't use total_amount
+      remarks: existingRecord.remarks ? `${existingRecord.remarks}\n---\n${finalRemarks}` : finalRemarks
+    } : {
+      rig_number: rig,
+      date: dateStr,
+      client: extractedData.extractedData?.Client || '',
+      operation_hr: finalHours['Operation Hr'],
+      reduce_hr: finalHours['Reduce Hr'],
+      standby_hr: finalHours['Standby Hr'],
+      zero_hr: finalHours['Zero Hr'],
+      repair_hr: finalHours['Repair Hr'],
+      am_hr: finalHours['AM Hr'],
+      special_hr: finalHours['Special Hr'],
+      force_majeure_hr: finalHours['Force Majeure Hr'],
+      stacking_hr: finalHours['STACKING Hr'],
+      rig_move_hr: finalHours['Rig Move Hr'],
+      not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
+      total_hrs: finalTotal,
+      total_amount: 0, // Regular rigs don't use total_amount
+      remarks: finalRemarks
+    };
+
+    console.log('Inserting/updating record:', existingRecord ? 'Accumulating with existing data' : 'Creating new record');
+    
     // Use upsert to update existing record or insert new one
     const { error: insertError } = await supabase
       .from('extracted_ddor_data')
-      .upsert({
-        rig_number: rig,
-        date: dateStr,
-        client: extractedData.extractedData?.Client || '',
-        operation_hr: finalHours['Operation Hr'],
-        reduce_hr: finalHours['Reduce Hr'],
-        standby_hr: finalHours['Standby Hr'],
-        zero_hr: finalHours['Zero Hr'],
-        repair_hr: finalHours['Repair Hr'],
-        am_hr: finalHours['AM Hr'],
-        special_hr: finalHours['Special Hr'],
-        force_majeure_hr: finalHours['Force Majeure Hr'],
-        stacking_hr: finalHours['STACKING Hr'],
-        rig_move_hr: finalHours['Rig Move Hr'],
-        not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
-        total_hrs: finalTotal,
-        total_amount: 0, // Regular rigs don't use total_amount
-        remarks: finalRemarks
-      }, {
+      .upsert(recordToInsert, {
         onConflict: 'rig_number,date',
         ignoreDuplicates: false
       });
