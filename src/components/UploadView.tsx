@@ -112,10 +112,10 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
       const data = await uploadedFile.file.arrayBuffer();
       const workbook = XLSX.read(data);
       
-      // Convert first sheet to JSON
+      // Convert sheet to JSON with header row detection
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const sheetData = XLSX.utils.sheet_to_json(worksheet);
+      const sheetData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
 
       // Call AI edge function to extract data
       const { data: result, error: fnError } = await supabase.functions.invoke('extract-sheet-data', {
