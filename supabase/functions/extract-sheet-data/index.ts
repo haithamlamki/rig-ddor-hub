@@ -819,7 +819,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or code blocks.`;
         force_majeure_hr: finalHours['Force Majeure Hr'],
         stacking_hr: finalHours['STACKING Hr'],
         rig_move_hr: finalHours['Rig Move Hr'],
-        not_received_ddor: extractedData.extractedData?.['Not Received DDOR'] || '',
+        not_received_ddor: finalTotal === 0 ? '1' : (extractedData.extractedData?.['Not Received DDOR'] || ''),
         total_hrs: finalTotal,
         remarks: extractedData.extractedData?.Remarks || ''
       }, {
