@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-
+import { supabase } from "@/integrations/supabase/client";
 interface UploadedFile {
   file: File;
   rig: string;
@@ -69,32 +69,22 @@ const UploadView = ({ onConfigClick, selectedDate, onDateChange }: UploadViewPro
       const sheetData = XLSX.utils.sheet_to_json(worksheet);
 
       // Call AI edge function to extract data
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-sheet-data`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sheetData,
-            rig: uploadedFile.rig,
-          }),
-        }
-      );
+      const { data: result, error: fnError } = await supabase.functions.invoke('extract-sheet-data', {
+        body: {
+          sheetData,
+          rig: uploadedFile.rig,
+        },
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to process file");
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to process file');
       }
 
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || "Failed to extract data");
+      if (!result?.success) {
+        throw new Error((result as any)?.error || 'Failed to extract data');
       }
 
-      const recordCount = result.data?.metadata?.totalRecords || result.data?.records?.length || 0;
+      const recordCount = 1; // we insert a single consolidated row per file/rig
 
       setUploadedFiles((prev) =>
         prev.map((f) =>
