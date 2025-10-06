@@ -416,7 +416,14 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     
     // Skip section headers and empty rows
     const fromStr = String(fromValue).trim();
-    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update 00:00')) continue;
+    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update 00:00') || fromStr.includes('06:00 Update')) {
+      // If we hit a "06:00 Update" section, stop processing to avoid double-counting
+      if (fromStr.includes('06:00 Update')) {
+        console.log('Encountered "06:00 Update" section at row:', i, '- stopping to avoid double-counting hours');
+        break;
+      }
+      continue;
+    }
     
     // Skip non-time rows within the activity table instead of stopping early
     if (!looksLikeTime(fromValue)) {
