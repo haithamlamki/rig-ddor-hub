@@ -246,7 +246,7 @@ const DashboardView = () => {
               <TableBody>
                 {filteredData.map((row, index) => (
                   <TableRow key={index} className="hover:bg-muted/30">
-                    <TableCell className="font-medium">{row.date}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{row.date}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
                         {row.rig}
