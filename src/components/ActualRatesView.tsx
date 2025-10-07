@@ -71,6 +71,15 @@ const ActualRatesView = () => {
     }
   };
 
+  const formatNumeric = (value: string) => {
+    if (!value || value === "") return "-";
+    // Remove currency symbols and commas, then parse
+    const cleaned = value.replace(/[^0-9.-]/g, "");
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return value;
+    return num.toFixed(2);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -113,10 +122,10 @@ const ActualRatesView = () => {
                   <TableCell>{rate.rig}</TableCell>
                   <TableCell>{rate.material}</TableCell>
                   <TableCell>{rate.description}</TableCell>
-                  <TableCell>{rate.contractAmount}</TableCell>
+                  <TableCell>{formatNumeric(rate.contractAmount)}</TableCell>
                   <TableCell>{rate.unit}</TableCell>
-                  <TableCell>{rate.usdAmount}</TableCell>
-                  <TableCell>{rate.omrAmount}</TableCell>
+                  <TableCell>{formatNumeric(rate.usdAmount)}</TableCell>
+                  <TableCell>{formatNumeric(rate.omrAmount)}</TableCell>
                   <TableCell>{rate.per}</TableCell>
                   <TableCell>{rate.validFrom}</TableCell>
                   <TableCell>{rate.validTo}</TableCell>
