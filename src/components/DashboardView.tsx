@@ -414,30 +414,37 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       row.remarks.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate totals for all hour categories
-  const totalOperationHrs = filteredData.reduce((sum, row) => sum + row.operationHr, 0);
-  const totalReduceHrs = filteredData.reduce((sum, row) => sum + row.reduceHr, 0);
-  const totalStandbyHrs = filteredData.reduce((sum, row) => sum + row.standbyHr, 0);
-  const totalZeroHrs = filteredData.reduce((sum, row) => sum + row.zeroHr, 0);
-  const totalRepairHrs = filteredData.reduce((sum, row) => sum + row.repairHr, 0);
-  const totalAmHrs = filteredData.reduce((sum, row) => sum + row.amHr, 0);
-  const totalSpecialHrs = filteredData.reduce((sum, row) => sum + row.specialHr, 0);
-  const totalForceMajeureHrs = filteredData.reduce((sum, row) => sum + row.forceMajeureHr, 0);
-  const totalStackingHrs = filteredData.reduce((sum, row) => sum + row.stackingHr, 0);
-  const totalRigMoveHrs = filteredData.reduce((sum, row) => sum + row.rigMoveHr, 0);
+  // Filter out Hoist rigs for card calculations
+  const nonHoistData = filteredData.filter(row => !row.rig.toLowerCase().includes('hoist'));
+
+  // Calculate totals for all hour categories (excluding Hoists)
+  const totalOperationHrs = nonHoistData.reduce((sum, row) => sum + row.operationHr, 0);
+  const totalReduceHrs = nonHoistData.reduce((sum, row) => sum + row.reduceHr, 0);
+  const totalStandbyHrs = nonHoistData.reduce((sum, row) => sum + row.standbyHr, 0);
+  const totalZeroHrs = nonHoistData.reduce((sum, row) => sum + row.zeroHr, 0);
+  const totalRepairHrs = nonHoistData.reduce((sum, row) => sum + row.repairHr, 0);
+  const totalAmHrs = nonHoistData.reduce((sum, row) => sum + row.amHr, 0);
+  const totalSpecialHrs = nonHoistData.reduce((sum, row) => sum + row.specialHr, 0);
+  const totalForceMajeureHrs = nonHoistData.reduce((sum, row) => sum + row.forceMajeureHr, 0);
+  const totalStackingHrs = nonHoistData.reduce((sum, row) => sum + row.stackingHr, 0);
+  const totalRigMoveHrs = nonHoistData.reduce((sum, row) => sum + row.rigMoveHr, 0);
   const avgEfficiency = ((totalOperationHrs / (totalOperationHrs + totalReduceHrs)) * 100).toFixed(1);
 
-  // Calculate total amounts for each hour type
-  const totalOperationAmount = filteredData.reduce((sum, row) => sum + row.operationAmount, 0);
-  const totalReduceAmount = filteredData.reduce((sum, row) => sum + row.reduceAmount, 0);
-  const totalStandbyAmount = filteredData.reduce((sum, row) => sum + row.standbyAmount, 0);
-  const totalZeroAmount = filteredData.reduce((sum, row) => sum + row.zeroAmount, 0);
-  const totalRepairAmount = filteredData.reduce((sum, row) => sum + row.repairAmount, 0);
-  const totalAmAmount = filteredData.reduce((sum, row) => sum + row.amAmount, 0);
-  const totalSpecialAmount = filteredData.reduce((sum, row) => sum + row.specialAmount, 0);
-  const totalForceMajeureAmount = filteredData.reduce((sum, row) => sum + row.forceMajeureAmount, 0);
-  const totalStackingAmount = filteredData.reduce((sum, row) => sum + row.stackingAmount, 0);
-  const totalRigMoveAmount = filteredData.reduce((sum, row) => sum + row.rigMoveAmount, 0);
+  // Calculate total amounts for each hour type (excluding Hoists)
+  const totalOperationAmount = nonHoistData.reduce((sum, row) => sum + row.operationAmount, 0);
+  const totalReduceAmount = nonHoistData.reduce((sum, row) => sum + row.reduceAmount, 0);
+  const totalStandbyAmount = nonHoistData.reduce((sum, row) => sum + row.standbyAmount, 0);
+  const totalZeroAmount = nonHoistData.reduce((sum, row) => sum + row.zeroAmount, 0);
+  const totalRepairAmount = nonHoistData.reduce((sum, row) => sum + row.repairAmount, 0);
+  const totalAmAmount = nonHoistData.reduce((sum, row) => sum + row.amAmount, 0);
+  const totalSpecialAmount = nonHoistData.reduce((sum, row) => sum + row.specialAmount, 0);
+  const totalForceMajeureAmount = nonHoistData.reduce((sum, row) => sum + row.forceMajeureAmount, 0);
+  const totalStackingAmount = nonHoistData.reduce((sum, row) => sum + row.stackingAmount, 0);
+  const totalRigMoveAmount = nonHoistData.reduce((sum, row) => sum + row.rigMoveAmount, 0);
+  
+  // Calculate stacking statistics (excluding Hoists, out of 27 rigs)
+  const stackedRigsCount = nonHoistData.filter(row => row.stackingHr > 0).length;
+  const stackingPercentage = ((stackedRigsCount / 27) * 100).toFixed(1);
 
   const handleExport = () => {
     const csvContent = [
@@ -535,6 +542,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           let totalAmount = 0;
           let totalFuelAmount = 0;
           
+          // Declare amount variables outside to ensure they're in scope
+          let operationAmount = 0;
+          let reduceAmount = 0;
+          let standbyAmount = 0;
+          let zeroAmount = 0;
+          let repairAmount = 0;
+          let amAmount = 0;
+          let specialAmount = 0;
+          let forceMajeureAmount = 0;
+          let stackingAmount = 0;
+          let rigMoveAmount = 0;
+          
           if (isHoistRig) {
             totalAmount = Number(item.total_amount) || 0;
             totalFuelAmount = 0;
@@ -548,16 +567,16 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             ) : 0;
             
             // Calculate individual amounts per hour type
-            const operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
-            const reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
-            const standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
-            const zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
-            const repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
-            const amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
-            const specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
-            const forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
-            const stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
-            const rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+            operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+            reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+            standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+            zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+            repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+            amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+            specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+            forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+            stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+            rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
             
             totalAmount = rates ? (
               operationAmount + reduceAmount + standbyAmount + zeroAmount +
@@ -587,16 +606,16 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               remarks: item.remarks || "",
               totalAmount,
               totalFuelAmount,
-              operationAmount: operationAmount || 0,
-              reduceAmount: reduceAmount || 0,
-              standbyAmount: standbyAmount || 0,
-              zeroAmount: zeroAmount || 0,
-              repairAmount: repairAmount || 0,
-              amAmount: amAmount || 0,
-              specialAmount: specialAmount || 0,
-              forceMajeureAmount: forceMajeureAmount || 0,
-              stackingAmount: stackingAmount || 0,
-              rigMoveAmount: rigMoveAmount || 0,
+              operationAmount,
+              reduceAmount,
+              standbyAmount,
+              zeroAmount,
+              repairAmount,
+              amAmount,
+              specialAmount,
+              forceMajeureAmount,
+              stackingAmount,
+              rigMoveAmount,
             }
           ];
         })
@@ -851,6 +870,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           let totalAmount = 0;
           let totalFuelAmount = 0;
           
+          // Declare amount variables outside to ensure they're in scope
+          let operationAmount = 0;
+          let reduceAmount = 0;
+          let standbyAmount = 0;
+          let zeroAmount = 0;
+          let repairAmount = 0;
+          let amAmount = 0;
+          let specialAmount = 0;
+          let forceMajeureAmount = 0;
+          let stackingAmount = 0;
+          let rigMoveAmount = 0;
+          
           if (isHoistRig) {
             totalAmount = Number(item.total_amount) || 0;
             totalFuelAmount = 0;
@@ -863,18 +894,22 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
             ) : 0;
             
+            // Calculate individual amounts per hour type
+            operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+            reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+            standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+            zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+            repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+            amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+            specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+            forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+            stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+            rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+            
             totalAmount = rates ? (
-              (operationHr * (Number(rates.operation_hr_rate) || 0)) +
-              (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
-              (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
-              (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
-              (repairHr * (Number(rates.repair_hr_rate) || 0)) +
-              (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
-              (specialHr * (Number(rates.special_hr_rate) || 0)) +
-              (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
-              (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
-              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
-              totalFuelAmount
+              operationAmount + reduceAmount + standbyAmount + zeroAmount +
+              repairAmount + amAmount + specialAmount + forceMajeureAmount +
+              stackingAmount + rigMoveAmount + totalFuelAmount
             ) : 0;
           }
           
@@ -899,6 +934,16 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               remarks: item.remarks || "",
               totalAmount,
               totalFuelAmount,
+              operationAmount,
+              reduceAmount,
+              standbyAmount,
+              zeroAmount,
+              repairAmount,
+              amAmount,
+              specialAmount,
+              forceMajeureAmount,
+              stackingAmount,
+              rigMoveAmount,
             }
           ];
         })
@@ -1165,6 +1210,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             <div className="text-2xl font-bold text-muted-foreground">{totalStackingHrs.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">Stacked rigs</p>
             <p className="text-sm font-semibold text-foreground mt-2">${totalStackingAmount.toFixed(2)}</p>
+            <p className="text-xs text-primary mt-1">{stackedRigsCount} rigs ({stackingPercentage}% of 27)</p>
           </CardContent>
         </Card>
 
