@@ -428,27 +428,37 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
         // Peek at first data row to determine if this is a morning block (00:00-06:00)
         let firstFromTime = -1;
         let lastToTime = -1;
-        for (let k = i + 1; k < Math.min(i + 20, sheetData.length); k++) {
+        let totalRows = 0;
+        for (let k = i + 1; k < Math.min(i + 30, sheetData.length); k++) {
           const dataRow = sheetData[k];
           if (!dataRow) continue;
           const fromVal = (dataRow as any)[fromKey];
           const toVal = (dataRow as any)[toKey];
           if (looksLikeTime(fromVal)) {
+            totalRows++;
             if (firstFromTime === -1) {
               firstFromTime = parseTimeToMinutes(fromVal);
             }
             if (looksLikeTime(toVal)) {
-              const toMins = parseTimeToMinutes(toVal);
+              let toMins = parseTimeToMinutes(toVal);
+              // Treat TO=00:00 as 24:00 for lastToTime calculation
+              if (toMins === 0 && parseTimeToMinutes(fromVal) > 0) {
+                toMins = 1440;
+              }
               if (toMins > lastToTime) lastToTime = toMins;
             }
           }
         }
         
         // Infer band label based on activity times
+        // A morning block (00:00-06:00) has few rows (< 5) and all activities end before 06:00
+        // A full-day block has many rows (>= 5) or activities extending past 06:00
         let inferredBandLabel = '00:00 - 00:00'; // Default to full-day
-        if (firstFromTime === 0 && lastToTime > 0 && lastToTime <= 360) {
+        if (firstFromTime === 0 && lastToTime > 0 && lastToTime <= 360 && totalRows < 5) {
           inferredBandLabel = '00:00 - 06:00'; // Morning block
-          console.log(`Inferred morning band (00:00 - 06:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}`);
+          console.log(`Inferred morning band (00:00 - 06:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
+        } else {
+          console.log(`Inferred full-day band (00:00 - 00:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
         }
         
         blocks.push({
