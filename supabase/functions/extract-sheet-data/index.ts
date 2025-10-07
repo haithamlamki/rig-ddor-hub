@@ -394,7 +394,7 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
         }
       }
       
-      if (fromKey && toKey && durKey) {
+        if (fromKey && toKey) {
           // Found header row for this block - peek at first data row to get firstFromTime
           let firstFromTime = -1;
           for (let k = j + 1; k < Math.min(j + 10, sheetData.length); k++) {
@@ -449,55 +449,55 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       }
     }
     
-    if (fromKey && toKey && durKey) {
-        // Peek at first data row to determine if this is a morning block (00:00-06:00)
-        let firstFromTime = -1;
-        let lastToTime = -1;
-        let totalRows = 0;
-        for (let k = i + 1; k < Math.min(i + 30, sheetData.length); k++) {
-          const dataRow = sheetData[k];
-          if (!dataRow) continue;
-          const fromVal = (dataRow as any)[fromKey];
-          const toVal = (dataRow as any)[toKey];
-          if (looksLikeTime(fromVal)) {
-            totalRows++;
-            if (firstFromTime === -1) {
-              firstFromTime = parseTimeToMinutes(fromVal);
-            }
-            if (looksLikeTime(toVal)) {
-              let toMins = parseTimeToMinutes(toVal);
-              // Treat TO=00:00 as 24:00 for lastToTime calculation
-              if (toMins === 0 && parseTimeToMinutes(fromVal) > 0) {
-                toMins = 1440;
+        if (fromKey && toKey) {
+          // Peek at first data row to determine if this is a morning block (00:00-06:00)
+          let firstFromTime = -1;
+          let lastToTime = -1;
+          let totalRows = 0;
+          for (let k = i + 1; k < Math.min(i + 30, sheetData.length); k++) {
+            const dataRow = sheetData[k];
+            if (!dataRow) continue;
+            const fromVal = (dataRow as any)[fromKey];
+            const toVal = (dataRow as any)[toKey];
+            if (looksLikeTime(fromVal)) {
+              totalRows++;
+              if (firstFromTime === -1) {
+                firstFromTime = parseTimeToMinutes(fromVal);
               }
-              if (toMins > lastToTime) lastToTime = toMins;
+              if (looksLikeTime(toVal)) {
+                let toMins = parseTimeToMinutes(toVal);
+                // Treat TO=00:00 as 24:00 for lastToTime calculation
+                if (toMins === 0 && parseTimeToMinutes(fromVal) > 0) {
+                  toMins = 1440;
+                }
+                if (toMins > lastToTime) lastToTime = toMins;
+              }
             }
           }
+          
+          // Infer band label based on activity times
+          // A morning block (00:00-06:00) has few rows (< 5) and all activities end before 06:00
+          // A full-day block has many rows (>= 5) or activities extending past 06:00
+          let inferredBandLabel = '00:00 - 00:00'; // Default to full-day
+          if (firstFromTime === 0 && lastToTime > 0 && lastToTime <= 360 && totalRows < 5) {
+            inferredBandLabel = '00:00 - 06:00'; // Morning block
+            console.log(`Inferred morning band (00:00 - 06:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
+          } else {
+            console.log(`Inferred full-day band (00:00 - 00:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
+          }
+          
+          blocks.push({
+            bandLabel: inferredBandLabel,
+            bandRow: i - 1,
+            headerRow: i,
+            dataStartRow: i + 1,
+            headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey },
+            firstFromTime
+          });
+          console.log(`Found standalone activity table at row ${i}, inferred band: "${inferredBandLabel}"`);
+          
+          // Continue searching for more tables (don't break)
         }
-        
-        // Infer band label based on activity times
-        // A morning block (00:00-06:00) has few rows (< 5) and all activities end before 06:00
-        // A full-day block has many rows (>= 5) or activities extending past 06:00
-        let inferredBandLabel = '00:00 - 00:00'; // Default to full-day
-        if (firstFromTime === 0 && lastToTime > 0 && lastToTime <= 360 && totalRows < 5) {
-          inferredBandLabel = '00:00 - 06:00'; // Morning block
-          console.log(`Inferred morning band (00:00 - 06:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
-        } else {
-          console.log(`Inferred full-day band (00:00 - 00:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}, rows=${totalRows}`);
-        }
-        
-        blocks.push({
-          bandLabel: inferredBandLabel,
-          bandRow: i - 1,
-          headerRow: i,
-          dataStartRow: i + 1,
-          headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey },
-          firstFromTime
-        });
-        console.log(`Found standalone activity table at row ${i}, inferred band: "${inferredBandLabel}"`);
-        
-        // Continue searching for more tables (don't break)
-      }
     }
   }
   
@@ -585,7 +585,10 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       // Get From, TO, Dur values
       const fromValue = (row as any)[block.headerCols.from!];
       const toValue = (row as any)[block.headerCols.to!];
-      const durValue = (row as any)[block.headerCols.dur!];
+      let durValue: any = undefined;
+      if (block.headerCols.dur) {
+        durValue = (row as any)[block.headerCols.dur];
+      }
       
       if (fromValue === null || fromValue === undefined) continue;
       
@@ -619,9 +622,9 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       // Compute mins_from_to = max(0, min(TO, 1440) - From)
       const minsFromTo = Math.max(0, Math.min(toMinutes >= 0 ? toMinutes : 1440, 1440) - fromMinutes);
       
-      // Parse Dur. → mins_dur
-      let minsDur = 0;
-      if (durValue !== null && durValue !== undefined) {
+      // Parse Dur. → mins_dur (fallback to minsFromTo if duration column missing)
+      let minsDur = block.headerCols.dur ? 0 : minsFromTo;
+      if (block.headerCols.dur && durValue !== null && durValue !== undefined) {
         if (typeof durValue === 'number') {
           minsDur = Math.round(durValue * 24 * 60);
         } else {
