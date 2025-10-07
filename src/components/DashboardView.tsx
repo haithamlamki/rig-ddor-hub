@@ -1117,14 +1117,20 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         <TableCell className="text-center px-2 py-1.5">
                           {isEditing && (displayRow.rigMoveHr || 0) > 0 ? (
                             <Select value={displayRow.rigMoveRateId || ""} onValueChange={handleRigMoveRateChange}>
-                              <SelectTrigger className="h-7 text-sm w-full bg-background"><SelectValue placeholder="Select rate" /></SelectTrigger>
-                              <SelectContent className="bg-background z-50">
+                              <SelectTrigger className="h-7 text-sm w-full bg-background">
+                                <SelectValue placeholder="Select rate" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="bg-popover border-border z-[100] max-h-[300px]">
                                 {availableRates.map((rate) => (
-                                  <SelectItem key={rate.no} value={rate.no}>{rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}</SelectItem>
+                                  <SelectItem key={rate.no} value={rate.no}>
+                                    {rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          ) : (<span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>)}
+                          ) : (
+                            <span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          )}
                         </TableCell>
                         
                         <TableCell className="text-center px-2 py-1.5">
