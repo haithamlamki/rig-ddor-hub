@@ -240,41 +240,40 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   };
 
   // Load data from database and merge with rig configs
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // Load extracted data
-        const { data: extractedData, error: extractError } = await supabase
-          .from('extracted_ddor_data')
-          .select('*')
-          .eq('date', dateStr);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load extracted data
+      const { data: extractedData, error: extractError } = await supabase
+        .from('extracted_ddor_data')
+        .select('*')
+        .eq('date', dateStr);
 
-        if (extractError) throw extractError;
+      if (extractError) throw extractError;
 
-        // Load all rig configurations
-        const { data: rigConfigs, error: configError } = await supabase
-          .from('rig_configs')
-          .select('*');
+      // Load all rig configurations
+      const { data: rigConfigs, error: configError } = await supabase
+        .from('rig_configs')
+        .select('*');
 
-        if (configError) throw configError;
+      if (configError) throw configError;
 
-        // Load rig rates
-        const { data: rigRates, error: ratesError } = await supabase
-          .from('rig_rates')
-          .select('*');
+      // Load rig rates
+      const { data: rigRates, error: ratesError } = await supabase
+        .from('rig_rates')
+        .select('*');
 
-        if (ratesError) throw ratesError;
+      if (ratesError) throw ratesError;
 
-        // Create a map of rig rates
-        const ratesMap = new Map(
-          (rigRates || []).map(rate => [rate.rig_number, rate])
-        );
+      // Create a map of rig rates
+      const ratesMap = new Map(
+        (rigRates || []).map(rate => [rate.rig_number, rate])
+      );
 
-        // Create a map of existing data by rig number
-        const dataMap = new Map(
-          (extractedData || []).map(item => {
+      // Create a map of existing data by rig number
+      const dataMap = new Map(
+        (extractedData || []).map(item => {
             const operationHr = Number(item.operation_hr) || 0;
             const reduceHr = Number(item.reduce_hr) || 0;
             const standbyHr = Number(item.standby_hr) || 0;
@@ -345,160 +344,161 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               ) : 0;
             }
             
-            return [
-              item.rig_number,
-              {
-                date: format(new Date(item.date), "dd-MMM-yy"),
-                dateISO: item.date,
-                rig: item.rig_number,
-                client: item.client || "",
-                operationHr,
-                reduceHr,
-                standbyHr,
-                zeroHr,
-                repairHr,
-                amHr,
-                specialHr,
-                forceMajeureHr,
-                stackingHr,
-                rigMoveHr,
-                notReceivedDDOR: item.not_received_ddor || "",
-                totalHrs,
-                remarks: item.remarks || "",
-                totalAmount,
-                totalFuelAmount,
-                operationAmount,
-                reduceAmount,
-                standbyAmount,
-                zeroAmount,
-                repairAmount,
-                amAmount,
-                specialAmount,
-                forceMajeureAmount,
-                stackingAmount,
-                rigMoveAmount,
-                rigMoveRateId: item.rig_move_rate_id || undefined,
-                rigMoveAmountApplied,
-              }
-            ];
-          })
-        );
+          return [
+            item.rig_number,
+            {
+              date: format(new Date(item.date), "dd-MMM-yy"),
+              dateISO: item.date,
+              rig: item.rig_number,
+              client: item.client || "",
+              operationHr,
+              reduceHr,
+              standbyHr,
+              zeroHr,
+              repairHr,
+              amHr,
+              specialHr,
+              forceMajeureHr,
+              stackingHr,
+              rigMoveHr,
+              notReceivedDDOR: item.not_received_ddor || "",
+              totalHrs,
+              remarks: item.remarks || "",
+              totalAmount,
+              totalFuelAmount,
+              operationAmount,
+              reduceAmount,
+              standbyAmount,
+              zeroAmount,
+              repairAmount,
+              amAmount,
+              specialAmount,
+              forceMajeureAmount,
+              stackingAmount,
+              rigMoveAmount,
+              rigMoveRateId: item.rig_move_rate_id || undefined,
+              rigMoveAmountApplied,
+            }
+          ];
+        })
+      );
 
-        // Create a map of rig configurations
-        const configMap = new Map(
-          (rigConfigs || []).map(config => [config.rig_number, config.column_mappings])
-        );
+      // Create a map of rig configurations
+      const configMap = new Map(
+        (rigConfigs || []).map(config => [config.rig_number, config.column_mappings])
+      );
 
-        // Generate full list with all rigs, filling in blanks with fixed data from config
-        const fullData = RIGS.map(rig => {
-          const existingData = dataMap.get(rig);
-          if (existingData) return existingData;
+      // Generate full list with all rigs, filling in blanks with fixed data from config
+      const fullData = RIGS.map(rig => {
+        const existingData = dataMap.get(rig);
+        if (existingData) return existingData;
 
-          // No uploaded data, but check for fixed values in config
-          const mappings = configMap.get(rig) as any[] || [];
-          const getFixedValue = (columnName: string) => {
-            const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
-            return mapping?.fixedValue || "";
-          };
-          
-          const getFixedNumber = (columnName: string) => {
-            const val = getFixedValue(columnName);
-            return val ? Number(val) : 0;
-          };
+        // No uploaded data, but check for fixed values in config
+        const mappings = configMap.get(rig) as any[] || [];
+        const getFixedValue = (columnName: string) => {
+          const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
+          return mapping?.fixedValue || "";
+        };
+        
+        const getFixedNumber = (columnName: string) => {
+          const val = getFixedValue(columnName);
+          return val ? Number(val) : 0;
+        };
 
-          const operationHr = getFixedNumber("Operation Hr");
-          const reduceHr = getFixedNumber("Reduce Hr");
-          const standbyHr = getFixedNumber("Standby Hr");
-          const zeroHr = getFixedNumber("Zero Hr");
-          const repairHr = getFixedNumber("Repair Hr");
-          const amHr = getFixedNumber("AM Hr");
-          const specialHr = getFixedNumber("Special Hr");
-          const forceMajeureHr = getFixedNumber("Force Majeure Hr");
-          const stackingHr = getFixedNumber("STACKING Hr");
-          const rigMoveHr = getFixedNumber("Rig Move Hr");
-          
-          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
-                         amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+        const operationHr = getFixedNumber("Operation Hr");
+        const reduceHr = getFixedNumber("Reduce Hr");
+        const standbyHr = getFixedNumber("Standby Hr");
+        const zeroHr = getFixedNumber("Zero Hr");
+        const repairHr = getFixedNumber("Repair Hr");
+        const amHr = getFixedNumber("AM Hr");
+        const specialHr = getFixedNumber("Special Hr");
+        const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+        const stackingHr = getFixedNumber("STACKING Hr");
+        const rigMoveHr = getFixedNumber("Rig Move Hr");
+        
+        const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                       amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
 
-          // Get rates for this rig
-          const rates = ratesMap.get(rig);
-          
-          // Calculate individual amounts per hour type
-          const operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
-          const reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
-          const standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
-          const zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
-          const repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
-          const amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
-          const specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
-          const forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
-          const stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
-          const rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
-          
-          // Calculate total amount (hours * hourly rates)
-          const totalAmount = rates ? (
-            operationAmount + reduceAmount + standbyAmount + zeroAmount + 
-            repairAmount + amAmount + specialAmount + forceMajeureAmount + 
-            stackingAmount + rigMoveAmount
-          ) : 0;
-          
-          // Calculate total fuel amount (hours/24 * daily fuel rates)
-          const totalFuelAmount = rates ? (
-            ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
-            ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
-            ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
-            ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
-            ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
-          ) : 0;
+        // Get rates for this rig
+        const rates = ratesMap.get(rig);
+        
+        // Calculate individual amounts per hour type
+        const operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+        const reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+        const standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+        const zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+        const repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+        const amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+        const specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+        const forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+        const stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+        const rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+        
+        // Calculate total amount (hours * hourly rates)
+        const totalAmount = rates ? (
+          operationAmount + reduceAmount + standbyAmount + zeroAmount + 
+          repairAmount + amAmount + specialAmount + forceMajeureAmount + 
+          stackingAmount + rigMoveAmount
+        ) : 0;
+        
+        // Calculate total fuel amount (hours/24 * daily fuel rates)
+        const totalFuelAmount = rates ? (
+          ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+          ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+          ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+          ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+          ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+        ) : 0;
 
-          return {
-            date: format(displayDate, "dd-MMM-yy"),
-            dateISO: format(displayDate, "yyyy-MM-dd"),
-            rig: getFixedValue("Rig") || rig,
-            client: getFixedValue("Client"),
-            operationHr,
-            reduceHr,
-            standbyHr,
-            zeroHr,
-            repairHr,
-            amHr,
-            specialHr,
-            forceMajeureHr,
-            stackingHr,
-            rigMoveHr,
-            notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
-            totalHrs,
-            remarks: getFixedValue("Remarks"),
-            totalAmount,
-            totalFuelAmount,
-            operationAmount,
-            reduceAmount,
-            standbyAmount,
-            zeroAmount,
-            repairAmount,
-            amAmount,
-            specialAmount,
-            forceMajeureAmount,
-            stackingAmount,
-            rigMoveAmount,
-            rigMoveRateId: undefined,
-            rigMoveAmountApplied: 0,
-          };
-        });
+        return {
+          date: format(displayDate, "dd-MMM-yy"),
+          dateISO: format(displayDate, "yyyy-MM-dd"),
+          rig: getFixedValue("Rig") || rig,
+          client: getFixedValue("Client"),
+          operationHr,
+          reduceHr,
+          standbyHr,
+          zeroHr,
+          repairHr,
+          amHr,
+          specialHr,
+          forceMajeureHr,
+          stackingHr,
+          rigMoveHr,
+          notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
+          totalHrs,
+          remarks: getFixedValue("Remarks"),
+          totalAmount,
+          totalFuelAmount,
+          operationAmount,
+          reduceAmount,
+          standbyAmount,
+          zeroAmount,
+          repairAmount,
+          amAmount,
+          specialAmount,
+          forceMajeureAmount,
+          stackingAmount,
+          rigMoveAmount,
+          rigMoveRateId: undefined,
+          rigMoveAmountApplied: 0,
+        };
+      });
 
-        setData(fullData);
-      } catch (error) {
-        console.error('Error loading data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load dashboard data",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      setData(fullData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadData();
   }, [dateStr]);
 
@@ -1002,7 +1002,15 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       }
 
       toast({ title: "Success", description: "Data saved successfully" });
-      window.location.reload();
+      
+      // Set the date filter to the edited date and reload data
+      const editedDate = parseISO(editedValues.dateISO || dateStr);
+      setSelectedDateFilter(editedDate);
+      setEditingRig(null);
+      setEditedValues({});
+      
+      // Reload data for the new date
+      await loadData();
     } catch (error) {
       console.error('Error saving data:', error);
       toast({ title: "Error", description: "Failed to save data", variant: "destructive" });
