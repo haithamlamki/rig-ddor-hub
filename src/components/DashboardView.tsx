@@ -1120,7 +1120,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600 dark:text-green-500">{totalOperationHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalOperationAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalOperationAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1130,7 +1130,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalReduceHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalReduceAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalReduceAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1140,7 +1140,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalStandbyHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalStandbyAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalStandbyAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1150,7 +1150,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600 dark:text-red-500">{totalZeroHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalZeroAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalZeroAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1160,7 +1160,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600 dark:text-red-500">{totalRepairHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalRepairAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalRepairAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1170,7 +1170,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalAmHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalAmAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalAmAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1180,7 +1180,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalSpecialHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalSpecialAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalSpecialAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1190,7 +1190,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{totalForceMajeureHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalForceMajeureAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalForceMajeureAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
 
@@ -1210,7 +1210,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">{totalRigMoveHrs.toFixed(2)}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">${totalRigMoveAmount.toFixed(2)}</p>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalRigMoveAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
       </div>
