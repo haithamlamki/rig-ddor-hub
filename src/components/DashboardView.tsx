@@ -43,7 +43,8 @@ interface ActualRate {
 }
 
 interface DashboardData {
-  date: string;
+  date: string; // Display format: "dd-MMM-yy"
+  dateISO: string; // ISO format: "yyyy-MM-dd" for querying
   rig: string;
   client: string;
   operationHr: number;
@@ -315,6 +316,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               item.rig_number,
               {
                 date: format(new Date(item.date), "dd-MMM-yy"),
+                dateISO: item.date,
                 rig: item.rig_number,
                 client: item.client || "",
                 operationHr,
@@ -418,6 +420,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
 
           return {
             date: format(displayDate, "dd-MMM-yy"),
+            dateISO: format(displayDate, "yyyy-MM-dd"),
             rig: getFixedValue("Rig") || rig,
             client: getFixedValue("Client"),
             operationHr,
@@ -753,7 +756,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           return [
             item.rig_number,
             {
-              date: format(new Date(item.date), "dd-MMM-yy"), rig: item.rig_number, client: item.client || "", operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
+              date: format(new Date(item.date), "dd-MMM-yy"), 
+              dateISO: item.date,
+              rig: item.rig_number, client: item.client || "", operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
               forceMajeureHr, stackingHr, rigMoveHr, notReceivedDDOR: item.not_received_ddor || "", totalHrs, remarks: item.remarks || "", totalAmount, totalFuelAmount,
               operationAmount, reduceAmount, standbyAmount, zeroAmount, repairAmount, amAmount, specialAmount, forceMajeureAmount, stackingAmount, rigMoveAmount,
               rigMoveRateId: item.rig_move_rate_id || undefined, rigMoveAmountApplied,
@@ -807,7 +812,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         const totalFuelAmount = rates ? (((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) + ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) + ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) + ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) + ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))) : 0;
 
         return {
-          date: format(selectedDateFilter, "dd-MMM-yy"), rig: getFixedValue("Rig") || rig, client: getFixedValue("Client"), operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
+          date: format(selectedDateFilter, "dd-MMM-yy"), 
+          dateISO: format(selectedDateFilter, "yyyy-MM-dd"),
+          rig: getFixedValue("Rig") || rig, client: getFixedValue("Client"), operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
           forceMajeureHr, stackingHr, rigMoveHr, notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"), totalHrs, remarks: getFixedValue("Remarks"), totalAmount, totalFuelAmount,
           operationAmount, reduceAmount, standbyAmount, zeroAmount, repairAmount, amAmount, specialAmount, forceMajeureAmount, stackingAmount, rigMoveAmount,
           rigMoveRateId: undefined, rigMoveAmountApplied: 0,
@@ -1094,7 +1101,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   {filteredData.map((row, index) => {
                     const isEditing = editingRig === row.rig;
                     const displayRow = isEditing ? editedValues : row;
-                    const availableRates = getRigMoveRatesForDate(row.rig, dateStr);
+                    const availableRates = getRigMoveRatesForDate(row.rig, row.dateISO || dateStr);
                     
                     return (
                       <TableRow key={index} className={cn("hover:bg-muted/30", isEditing && "bg-accent/20")}>
@@ -1116,18 +1123,31 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         
                         <TableCell className="text-center px-2 py-1.5">
                           {isEditing && (displayRow.rigMoveHr || 0) > 0 ? (
-                            <Select value={displayRow.rigMoveRateId || ""} onValueChange={handleRigMoveRateChange}>
-                              <SelectTrigger className="h-7 text-sm w-full bg-background">
-                                <SelectValue placeholder="Select rate" />
-                              </SelectTrigger>
-                              <SelectContent position="popper" className="bg-popover border-border z-[100] max-h-[300px]">
-                                {availableRates.map((rate) => (
-                                  <SelectItem key={rate.no} value={rate.no}>
-                                    {rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            availableRates.length > 0 ? (
+                              <Select 
+                                value={displayRow.rigMoveRateId || ""} 
+                                onValueChange={handleRigMoveRateChange}
+                              >
+                                <SelectTrigger className="h-7 text-sm w-full bg-background">
+                                  <SelectValue placeholder="Select rate" />
+                                </SelectTrigger>
+                                <SelectContent 
+                                  position="popper" 
+                                  className="bg-popover border-border z-[100]"
+                                  sideOffset={5}
+                                  align="start"
+                                  avoidCollisions={true}
+                                >
+                                  {availableRates.map((rate) => (
+                                    <SelectItem key={rate.no} value={rate.no}>
+                                      {rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No rates available</span>
+                            )
                           ) : (
                             <span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           )}
