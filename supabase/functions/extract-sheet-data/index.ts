@@ -435,6 +435,8 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
   }
   
   // Process activity table rows (Rule A: 00:00 - 00:00 table)
+  let hasCompletedFullDay = false; // Track if we've seen the end of a 24-hour cycle
+  
   for (let i = activityTableStartRow; i < sheetData.length; i++) {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
@@ -497,9 +499,16 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
     let toMinutes = parseTimeToMinutes(toValue);
     
+    // Rule B: If we've completed a full day and see a new 0:00-6:00 row, it's the next day's table - stop
+    if (hasCompletedFullDay && fromMinutes === 0 && toMinutes === 360) {
+      console.log(`Row ${i}: Detected next day's 0:00-6:00 table after completing full day - stopping per Rule B`);
+      break;
+    }
+    
     // Rule A: Treat TO == 00:00 as 24:00 (1440 minutes) for same-day calculation
     if (toMinutes === 0 && fromMinutes > 0) {
       toMinutes = 1440; // 24:00
+      hasCompletedFullDay = true; // Mark that we've reached end of day
       console.log(`Row ${i}: TO is 00:00, treating as 24:00 (end of day)`);
     }
     
