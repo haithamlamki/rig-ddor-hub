@@ -445,6 +445,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   // Calculate stacking statistics (excluding Hoists, out of 27 rigs)
   const stackedRigsCount = nonHoistData.filter(row => row.stackingHr > 0).length;
   const stackingPercentage = ((stackedRigsCount / 27) * 100).toFixed(1);
+  const utilizationPercentage = (((27 - stackedRigsCount) / 27) * 100).toFixed(1);
 
   const handleExport = () => {
     const csvContent = [
@@ -1200,7 +1201,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-muted-foreground">{totalStackingHrs.toFixed(2)}</div>
-            <p className="text-xs text-primary mt-1">{stackedRigsCount} rigs ({stackingPercentage}% of 27)</p>
+            <p className="text-xs text-primary mt-1">Utilization: {utilizationPercentage}%</p>
           </CardContent>
         </Card>
 
