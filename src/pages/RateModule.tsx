@@ -11,6 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ActualRatesView from "@/components/ActualRatesView";
 
 interface RigRate {
   rig_number: string;
@@ -87,70 +89,83 @@ const RateModule = () => {
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-semibold text-foreground">Rig Rates</h1>
+        <h1 className="text-3xl font-semibold text-foreground">Rate Management</h1>
         <p className="text-muted-foreground mt-2">
-          View hourly and daily rates for all rigs
+          View and manage rig rates
         </p>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-semibold sticky left-0 bg-card z-10">Rig</TableHead>
-                <TableHead className="font-semibold">Operation Hr Rate</TableHead>
-                <TableHead className="font-semibold">Reduce Hr Rate</TableHead>
-                <TableHead className="font-semibold">Standby Hr Rate</TableHead>
-                <TableHead className="font-semibold">Zero Hr Rate</TableHead>
-                <TableHead className="font-semibold">Repair Hr Rate</TableHead>
-                <TableHead className="font-semibold">Annual Maintenance Hr Rate</TableHead>
-                <TableHead className="font-semibold">Special Hr Rate</TableHead>
-                <TableHead className="font-semibold">Force Majeure Hr Rate</TableHead>
-                <TableHead className="font-semibold">STACKING Hr Rate</TableHead>
-                <TableHead className="font-semibold">Rig Move Hr Rate</TableHead>
-                <TableHead className="font-semibold">Rig Move Times</TableHead>
-                <TableHead className="font-semibold">Fuel Operation Day Rate USD</TableHead>
-                <TableHead className="font-semibold">Fuel Reduce Day Rate USD</TableHead>
-                <TableHead className="font-semibold">Fuel Zero Day Rate USD</TableHead>
-                <TableHead className="font-semibold">Fuel Repair Day Rate USD</TableHead>
-                <TableHead className="font-semibold">Fuel Special Day Rate USD</TableHead>
-                <TableHead className="font-semibold">OBM Operation Day Rate USD</TableHead>
-                <TableHead className="font-semibold">OBM Reduce Day Rate USD</TableHead>
-                <TableHead className="font-semibold">OBM Zero Day Rate USD</TableHead>
-                <TableHead className="font-semibold">OBM Repair Day Rate USD</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rates.map((rate) => (
-                <TableRow key={rate.rig_number}>
-                  <TableCell className="font-medium sticky left-0 bg-card">{rate.rig_number}</TableCell>
-                  <TableCell>{formatCurrency(rate.operation_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.reduce_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.standby_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.zero_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.repair_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.annual_maintenance_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.special_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.force_majeure_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.stacking_hr_rate)}</TableCell>
-                  <TableCell>{formatCurrency(rate.rig_move_hr_rate)}</TableCell>
-                  <TableCell>{rate.rig_move_times || "-"}</TableCell>
-                  <TableCell>{formatCurrency(rate.fuel_operation_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.fuel_reduce_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.fuel_zero_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.fuel_repair_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.fuel_special_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.obm_operation_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.obm_reduce_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.obm_zero_day_rate_usd)}</TableCell>
-                  <TableCell>{formatCurrency(rate.obm_repair_day_rate_usd)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+      <Tabs defaultValue="rig-rates" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="rig-rates">Rig Rates</TabsTrigger>
+          <TabsTrigger value="actual-rates">Actual Rates</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="rig-rates">
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold sticky left-0 bg-card z-10">Rig</TableHead>
+                    <TableHead className="font-semibold">Operation Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Reduce Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Standby Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Zero Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Repair Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Annual Maintenance Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Special Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Force Majeure Hr Rate</TableHead>
+                    <TableHead className="font-semibold">STACKING Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Rig Move Hr Rate</TableHead>
+                    <TableHead className="font-semibold">Rig Move Times</TableHead>
+                    <TableHead className="font-semibold">Fuel Operation Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">Fuel Reduce Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">Fuel Zero Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">Fuel Repair Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">Fuel Special Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">OBM Operation Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">OBM Reduce Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">OBM Zero Day Rate USD</TableHead>
+                    <TableHead className="font-semibold">OBM Repair Day Rate USD</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rates.map((rate) => (
+                    <TableRow key={rate.rig_number}>
+                      <TableCell className="font-medium sticky left-0 bg-card">{rate.rig_number}</TableCell>
+                      <TableCell>{formatCurrency(rate.operation_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.reduce_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.standby_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.zero_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.repair_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.annual_maintenance_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.special_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.force_majeure_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.stacking_hr_rate)}</TableCell>
+                      <TableCell>{formatCurrency(rate.rig_move_hr_rate)}</TableCell>
+                      <TableCell>{rate.rig_move_times || "-"}</TableCell>
+                      <TableCell>{formatCurrency(rate.fuel_operation_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.fuel_reduce_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.fuel_zero_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.fuel_repair_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.fuel_special_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.obm_operation_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.obm_reduce_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.obm_zero_day_rate_usd)}</TableCell>
+                      <TableCell>{formatCurrency(rate.obm_repair_day_rate_usd)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="actual-rates">
+          <ActualRatesView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
