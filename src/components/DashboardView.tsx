@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Filter, Search, ChevronLeft, ChevronRight, Trash2, Check, X } from "lucide-react";
+import { Download, Filter, Search, ChevronLeft, ChevronRight, Trash2, Check, X, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface DashboardData {
   date: string;
@@ -140,6 +142,11 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   // Month and date selection state
   const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
   const [selectedDateFilter, setSelectedDateFilter] = useState(selectedDate || new Date());
+  
+  // Date range export state
+  const [dateRangeStart, setDateRangeStart] = useState<Date | undefined>(undefined);
+  const [dateRangeEnd, setDateRangeEnd] = useState<Date | undefined>(undefined);
+  const [isExportingRange, setIsExportingRange] = useState(false);
   
   // Use selected date filter
   const displayDate = selectedDateFilter;
@@ -483,6 +490,202 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     a.href = url;
     a.download = "ddor-consolidated-report.csv";
     a.click();
+  };
+
+  const handleDateRangeExport = async () => {
+    if (!dateRangeStart || !dateRangeEnd) {
+      toast({
+        title: "Invalid Date Range",
+        description: "Please select both start and end dates",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (dateRangeEnd < dateRangeStart) {
+      toast({
+        title: "Invalid Date Range",
+        description: "End date must be after start date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsExportingRange(true);
+
+      // Generate all dates in the range
+      const dateRange = eachDayOfInterval({ start: dateRangeStart, end: dateRangeEnd });
+      
+      // Fetch data for all dates in range
+      const { data: extractedData, error: extractError } = await supabase
+        .from('extracted_ddor_data')
+        .select('*')
+        .gte('date', format(dateRangeStart, "yyyy-MM-dd"))
+        .lte('date', format(dateRangeEnd, "yyyy-MM-dd"));
+
+      if (extractError) throw extractError;
+
+      // Load rig configurations and rates
+      const { data: rigRates } = await supabase.from('rig_rates').select('*');
+      const ratesMap = new Map((rigRates || []).map(rate => [rate.rig_number, rate]));
+
+      // Process all data for the date range
+      const allRangeData: DashboardData[] = [];
+
+      for (const date of dateRange) {
+        const dateStr = format(date, "yyyy-MM-dd");
+        const dateFormatted = format(date, "dd-MMM-yy");
+        
+        // Get data for this specific date
+        const dateData = (extractedData || []).filter(item => item.date === dateStr);
+        const dataMap = new Map(
+          dateData.map(item => {
+            const operationHr = Number(item.operation_hr) || 0;
+            const reduceHr = Number(item.reduce_hr) || 0;
+            const standbyHr = Number(item.standby_hr) || 0;
+            const zeroHr = Number(item.zero_hr) || 0;
+            const repairHr = Number(item.repair_hr) || 0;
+            const amHr = Number(item.am_hr) || 0;
+            const specialHr = Number(item.special_hr) || 0;
+            const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+            const stackingHr = Number(item.stacking_hr) || 0;
+            const rigMoveHr = Number(item.rig_move_hr) || 0;
+            
+            const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                           amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+            
+            const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+            const rates = ratesMap.get(item.rig_number);
+            
+            let totalAmount = 0;
+            let totalFuelAmount = 0;
+            let operationAmount = 0, reduceAmount = 0, standbyAmount = 0, zeroAmount = 0;
+            let repairAmount = 0, amAmount = 0, specialAmount = 0, forceMajeureAmount = 0;
+            let stackingAmount = 0, rigMoveAmount = 0;
+            
+            if (isHoistRig) {
+              totalAmount = Number(item.total_amount) || 0;
+            } else {
+              totalFuelAmount = rates ? (
+                ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+                ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+                ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+                ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+                ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+              ) : 0;
+              
+              operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+              reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+              standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+              zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+              repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+              amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+              specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+              forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+              stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+              rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+              
+              totalAmount = operationAmount + reduceAmount + standbyAmount + zeroAmount + 
+                          repairAmount + amAmount + specialAmount + forceMajeureAmount + 
+                          stackingAmount + rigMoveAmount + totalFuelAmount;
+            }
+            
+            return [
+              item.rig_number,
+              {
+                date: dateFormatted,
+                rig: item.rig_number,
+                client: item.client || "",
+                operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr,
+                specialHr, forceMajeureHr, stackingHr, rigMoveHr,
+                notReceivedDDOR: item.not_received_ddor || "",
+                totalHrs,
+                remarks: item.remarks || "",
+                totalAmount,
+                totalFuelAmount,
+                operationAmount, reduceAmount, standbyAmount, zeroAmount,
+                repairAmount, amAmount, specialAmount, forceMajeureAmount,
+                stackingAmount, rigMoveAmount,
+              }
+            ];
+          })
+        );
+
+        // Add all rigs for this date
+        for (const rig of RIGS) {
+          const existingData = dataMap.get(rig);
+          if (existingData) {
+            allRangeData.push(existingData);
+          } else {
+            allRangeData.push({
+              date: dateFormatted,
+              rig,
+              client: "",
+              operationHr: 0, reduceHr: 0, standbyHr: 0, zeroHr: 0,
+              repairHr: 0, amHr: 0, specialHr: 0, forceMajeureHr: 0,
+              stackingHr: 0, rigMoveHr: 0,
+              notReceivedDDOR: "",
+              totalHrs: 0,
+              remarks: "",
+              totalAmount: 0,
+              totalFuelAmount: 0,
+              operationAmount: 0, reduceAmount: 0, standbyAmount: 0, zeroAmount: 0,
+              repairAmount: 0, amAmount: 0, specialAmount: 0, forceMajeureAmount: 0,
+              stackingAmount: 0, rigMoveAmount: 0,
+            });
+          }
+        }
+      }
+
+      // Create CSV
+      const csvContent = [
+        ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Not Received DDOR", "Total Hr.s", "Total Fuel Amount", "Total Amount", "Remarks"],
+        ...allRangeData.map((row) => [
+          row.date,
+          row.rig,
+          row.client,
+          row.operationHr,
+          row.reduceHr,
+          row.standbyHr,
+          row.zeroHr,
+          row.repairHr,
+          row.amHr,
+          row.specialHr,
+          row.forceMajeureHr,
+          row.stackingHr,
+          row.rigMoveHr,
+          row.notReceivedDDOR,
+          row.totalHrs,
+          row.totalFuelAmount.toFixed(2),
+          row.totalAmount.toFixed(2),
+          row.remarks,
+        ]),
+      ]
+        .map((row) => row.join(","))
+        .join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ddor-report-${format(dateRangeStart, "yyyy-MM-dd")}-to-${format(dateRangeEnd, "yyyy-MM-dd")}.csv`;
+      a.click();
+
+      toast({
+        title: "Export Successful",
+        description: `Downloaded data from ${format(dateRangeStart, "dd-MMM-yy")} to ${format(dateRangeEnd, "dd-MMM-yy")}`,
+      });
+    } catch (error) {
+      console.error('Error exporting date range:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export date range data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExportingRange(false);
+    }
   };
 
   const handleClearHours = async () => {
@@ -1258,10 +1461,56 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               <Button variant="outline" size="icon">
                 <Filter className="h-4 w-4" />
               </Button>
-              <Button onClick={handleExport} className="gap-2">
+              <Button onClick={handleExport} variant="outline" className="gap-2">
                 <Download className="h-4 w-4" />
-                Export
+                Export Current
               </Button>
+              
+              {/* Date Range Export */}
+              <div className="flex gap-2 items-center border-l pl-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {dateRangeStart ? format(dateRangeStart, "dd-MMM-yy") : "Start Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRangeStart}
+                      onSelect={setDateRangeStart}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {dateRangeEnd ? format(dateRangeEnd, "dd-MMM-yy") : "End Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRangeEnd}
+                      onSelect={setDateRangeEnd}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Button 
+                  onClick={handleDateRangeExport} 
+                  className="gap-2"
+                  disabled={!dateRangeStart || !dateRangeEnd || isExportingRange}
+                >
+                  <Download className="h-4 w-4" />
+                  {isExportingRange ? "Exporting..." : "Export Range"}
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
