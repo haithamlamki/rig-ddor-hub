@@ -371,4 +371,806 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
             return val ? Number(val) : 0;
           };
 
-          const operationHr = getFixed
+          const operationHr = getFixedNumber("Operation Hr");
+          const reduceHr = getFixedNumber("Reduce Hr");
+          const standbyHr = getFixedNumber("Standby Hr");
+          const zeroHr = getFixedNumber("Zero Hr");
+          const repairHr = getFixedNumber("Repair Hr");
+          const amHr = getFixedNumber("AM Hr");
+          const specialHr = getFixedNumber("Special Hr");
+          const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+          const stackingHr = getFixedNumber("STACKING Hr");
+          const rigMoveHr = getFixedNumber("Rig Move Hr");
+          
+          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                         amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+
+          // Get rates for this rig
+          const rates = ratesMap.get(rig);
+          
+          // Calculate individual amounts per hour type
+          const operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+          const reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+          const standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+          const zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+          const repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+          const amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+          const specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+          const forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+          const stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+          const rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+          
+          // Calculate total amount (hours * hourly rates)
+          const totalAmount = rates ? (
+            operationAmount + reduceAmount + standbyAmount + zeroAmount + 
+            repairAmount + amAmount + specialAmount + forceMajeureAmount + 
+            stackingAmount + rigMoveAmount
+          ) : 0;
+          
+          // Calculate total fuel amount (hours/24 * daily fuel rates)
+          const totalFuelAmount = rates ? (
+            ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+            ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+            ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+            ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+            ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+          ) : 0;
+
+          return {
+            date: format(displayDate, "dd-MMM-yy"),
+            rig: getFixedValue("Rig") || rig,
+            client: getFixedValue("Client"),
+            operationHr,
+            reduceHr,
+            standbyHr,
+            zeroHr,
+            repairHr,
+            amHr,
+            specialHr,
+            forceMajeureHr,
+            stackingHr,
+            rigMoveHr,
+            notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
+            totalHrs,
+            remarks: getFixedValue("Remarks"),
+            totalAmount,
+            totalFuelAmount,
+            operationAmount,
+            reduceAmount,
+            standbyAmount,
+            zeroAmount,
+            repairAmount,
+            amAmount,
+            specialAmount,
+            forceMajeureAmount,
+            stackingAmount,
+            rigMoveAmount,
+            rigMoveRateId: undefined,
+            rigMoveAmountApplied: 0,
+          };
+        });
+
+        setData(fullData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [dateStr]);
+
+
+  const filteredData = data.filter(
+    (row) =>
+      row.rig.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.remarks.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter out Hoist rigs for card calculations
+  const nonHoistData = filteredData.filter(row => !row.rig.toLowerCase().includes('hoist'));
+
+  // Calculate totals for all hour categories (excluding Hoists)
+  const totalOperationHrs = nonHoistData.reduce((sum, row) => sum + row.operationHr, 0);
+  const totalReduceHrs = nonHoistData.reduce((sum, row) => sum + row.reduceHr, 0);
+  const totalStandbyHrs = nonHoistData.reduce((sum, row) => sum + row.standbyHr, 0);
+  const totalZeroHrs = nonHoistData.reduce((sum, row) => sum + row.zeroHr, 0);
+  const totalRepairHrs = nonHoistData.reduce((sum, row) => sum + row.repairHr, 0);
+  const totalAmHrs = nonHoistData.reduce((sum, row) => sum + row.amHr, 0);
+  const totalSpecialHrs = nonHoistData.reduce((sum, row) => sum + row.specialHr, 0);
+  const totalForceMajeureHrs = nonHoistData.reduce((sum, row) => sum + row.forceMajeureHr, 0);
+  const totalStackingHrs = nonHoistData.reduce((sum, row) => sum + row.stackingHr, 0);
+  const totalRigMoveHrs = nonHoistData.reduce((sum, row) => sum + row.rigMoveHr, 0);
+  const avgEfficiency = ((totalOperationHrs / (totalOperationHrs + totalReduceHrs)) * 100).toFixed(1);
+
+  // Calculate total amounts for each hour type (excluding Hoists)
+  const totalOperationAmount = nonHoistData.reduce((sum, row) => sum + row.operationAmount, 0);
+  const totalReduceAmount = nonHoistData.reduce((sum, row) => sum + row.reduceAmount, 0);
+  const totalStandbyAmount = nonHoistData.reduce((sum, row) => sum + row.standbyAmount, 0);
+  const totalZeroAmount = nonHoistData.reduce((sum, row) => sum + row.zeroAmount, 0);
+  const totalRepairAmount = nonHoistData.reduce((sum, row) => sum + row.repairAmount, 0);
+  const totalAmAmount = nonHoistData.reduce((sum, row) => sum + row.amAmount, 0);
+  const totalSpecialAmount = nonHoistData.reduce((sum, row) => sum + row.specialAmount, 0);
+  const totalForceMajeureAmount = nonHoistData.reduce((sum, row) => sum + row.forceMajeureAmount, 0);
+  const totalStackingAmount = nonHoistData.reduce((sum, row) => sum + row.stackingAmount, 0);
+  const totalRigMoveAmount = nonHoistData.reduce((sum, row) => sum + row.rigMoveAmountApplied, 0);
+  
+  // Calculate stacking statistics (excluding Hoists, out of 27 rigs)
+  const stackedRigsCount = nonHoistData.filter(row => row.stackingHr > 0).length;
+  const stackingPercentage = ((stackedRigsCount / 27) * 100).toFixed(1);
+  const utilizationPercentage = (((27 - stackedRigsCount) / 27) * 100).toFixed(1);
+  
+  // Calculate rig move count
+  const rigMoveRigsCount = nonHoistData.filter(row => row.rigMoveHr > 0).length;
+
+  const handleExport = () => {
+    const csvContent = [
+      ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Rig Move Amount", "Not Received DDOR", "Total Hr.s", "Total Fuel Amount", "Total Amount", "Remarks"],
+      ...filteredData.map((row) => [
+        row.date,
+        row.rig,
+        row.client,
+        row.operationHr,
+        row.reduceHr,
+        row.standbyHr,
+        row.zeroHr,
+        row.repairHr,
+        row.amHr,
+        row.specialHr,
+        row.forceMajeureHr,
+        row.stackingHr,
+        row.rigMoveHr,
+        row.rigMoveAmountApplied.toFixed(2),
+        row.notReceivedDDOR,
+        row.totalHrs,
+        row.totalFuelAmount.toFixed(2),
+        row.totalAmount.toFixed(2),
+        row.remarks,
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ddor-consolidated-report.csv";
+    a.click();
+  };
+
+  const handleDateRangeExport = async () => {
+    if (!dateRangeStart || !dateRangeEnd) {
+      toast({
+        title: "Invalid Date Range",
+        description: "Please select both start and end dates",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExportingRange(true);
+
+    try {
+      const startStr = format(dateRangeStart, "yyyy-MM-dd");
+      const endStr = format(dateRangeEnd, "yyyy-MM-dd");
+
+      // Fetch all data within date range
+      const { data: rangeData, error } = await supabase
+        .from('extracted_ddor_data')
+        .select('*')
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+      if (error) throw error;
+
+      // Load rig rates and configs
+      const { data: rigRates } = await supabase.from('rig_rates').select('*');
+      const { data: rigConfigs } = await supabase.from('rig_configs').select('*');
+
+      const ratesMap = new Map((rigRates || []).map(rate => [rate.rig_number, rate]));
+      const configMap = new Map((rigConfigs || []).map(config => [config.rig_number, config.column_mappings]));
+
+      // Process data
+      const allRangeData: any[] = [];
+
+      // Group by date
+      const dateMap = new Map();
+      rangeData?.forEach(item => {
+        if (!dateMap.has(item.date)) {
+          dateMap.set(item.date, []);
+        }
+        dateMap.get(item.date).push(item);
+      });
+
+      // Process each date
+      for (const [dateKey, items] of dateMap.entries()) {
+        const dateFormatted = format(new Date(dateKey), "dd-MMM-yy");
+        const dataMap = new Map(
+          items.map((item: any) => {
+            const operationHr = Number(item.operation_hr) || 0;
+            const reduceHr = Number(item.reduce_hr) || 0;
+            const standbyHr = Number(item.standby_hr) || 0;
+            const zeroHr = Number(item.zero_hr) || 0;
+            const repairHr = Number(item.repair_hr) || 0;
+            const amHr = Number(item.am_hr) || 0;
+            const specialHr = Number(item.special_hr) || 0;
+            const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+            const stackingHr = Number(item.stacking_hr) || 0;
+            const rigMoveHr = Number(item.rig_move_hr) || 0;
+            const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+            const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+            const rates = ratesMap.get(item.rig_number);
+            let totalAmount = 0;
+            let totalFuelAmount = 0;
+            let operationAmount = 0, reduceAmount = 0, standbyAmount = 0, zeroAmount = 0, repairAmount = 0, amAmount = 0, specialAmount = 0, forceMajeureAmount = 0, stackingAmount = 0, rigMoveAmount = 0;
+            const rigMoveAmountApplied = Number(item.rig_move_amount_applied) || 0;
+
+            if (isHoistRig) {
+              totalAmount = Number(item.total_amount) || 0;
+            } else {
+              totalFuelAmount = rates ? (((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) + ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) + ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) + ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) + ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))) : 0;
+              operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+              reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+              standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+              zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+              repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+              amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+              specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+              forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+              stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+              rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+              totalAmount = rates ? (operationAmount + reduceAmount + standbyAmount + zeroAmount + repairAmount + amAmount + specialAmount + forceMajeureAmount + stackingAmount + rigMoveAmountApplied + totalFuelAmount) : 0;
+            }
+
+            return [
+              item.rig_number,
+              {
+                date: dateFormatted, rig: item.rig_number, client: item.client || "", operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr, forceMajeureHr, stackingHr, rigMoveHr,
+                notReceivedDDOR: item.not_received_ddor || "", totalHrs, remarks: item.remarks || "", totalAmount, totalFuelAmount, operationAmount, reduceAmount, standbyAmount, zeroAmount, repairAmount,
+                amAmount, specialAmount, forceMajeureAmount, stackingAmount, rigMoveAmount, rigMoveRateId: item.rig_move_rate_id || undefined, rigMoveAmountApplied,
+              }
+            ];
+          })
+        );
+
+        // Add all rigs for this date
+        for (const rig of RIGS) {
+          const existingData = dataMap.get(rig);
+          if (existingData) {
+            allRangeData.push(existingData);
+          } else {
+            allRangeData.push({
+              date: dateFormatted, rig, client: "", operationHr: 0, reduceHr: 0, standbyHr: 0, zeroHr: 0,
+              repairHr: 0, amHr: 0, specialHr: 0, forceMajeureHr: 0, stackingHr: 0, rigMoveHr: 0,
+              notReceivedDDOR: "", totalHrs: 0, remarks: "", totalAmount: 0, totalFuelAmount: 0,
+              operationAmount: 0, reduceAmount: 0, standbyAmount: 0, zeroAmount: 0, repairAmount: 0, amAmount: 0, specialAmount: 0,
+              forceMajeureAmount: 0, stackingAmount: 0, rigMoveAmount: 0, rigMoveRateId: undefined, rigMoveAmountApplied: 0,
+            });
+          }
+        }
+      }
+
+      // Export to CSV
+      const csvContent = [
+        ["Date", "Rig", "Client", "Operation Hr", "Reduce Hr", "Standby Hr", "Zero Hr", "Repair Hr", "AM Hr", "Special Hr", "Force Majeure Hr", "STACKING Hr", "Rig Move Hr", "Rig Move Amount", "Not Received DDOR", "Total Hr.s", "Total Fuel Amount", "Total Amount", "Remarks"],
+        ...allRangeData.map((row) => [row.date, row.rig, row.client, row.operationHr, row.reduceHr, row.standbyHr, row.zeroHr, row.repairHr, row.amHr, row.specialHr, row.forceMajeureHr, row.stackingHr, row.rigMoveHr, row.rigMoveAmountApplied.toFixed(2), row.notReceivedDDOR, row.totalHrs, row.totalFuelAmount.toFixed(2), row.totalAmount.toFixed(2), row.remarks])
+      ].map((row) => row.join(",")).join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ddor-report-${startStr}-to-${endStr}.csv`;
+      a.click();
+
+      toast({
+        title: "Export Successful",
+        description: `Exported data from ${startStr} to ${endStr}`,
+      });
+    } catch (error) {
+      console.error('Error exporting range:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export date range data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExportingRange(false);
+    }
+  };
+
+  const handleClearHours = async () => {
+    if (!selectedRigToClear) return;
+
+    try {
+      setLoading(true);
+
+      // Delete from database
+      const { error } = await supabase
+        .from('extracted_ddor_data')
+        .delete()
+        .eq('rig_number', selectedRigToClear)
+        .eq('date', dateStr);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Cleared hours for rig ${selectedRigToClear}`,
+      });
+
+      // Reload data
+      const { data: extractedData } = await supabase.from('extracted_ddor_data').select('*').eq('date', dateStr);
+      const { data: rigConfigs } = await supabase.from('rig_configs').select('*');
+      const { data: rigRates } = await supabase.from('rig_rates').select('*');
+
+      const ratesMap = new Map((rigRates || []).map(rate => [rate.rig_number, rate]));
+      const dataMap = new Map(
+        (extractedData || []).map(item => {
+          const operationHr = Number(item.operation_hr) || 0;
+          const reduceHr = Number(item.reduce_hr) || 0;
+          const standbyHr = Number(item.standby_hr) || 0;
+          const zeroHr = Number(item.zero_hr) || 0;
+          const repairHr = Number(item.repair_hr) || 0;
+          const amHr = Number(item.am_hr) || 0;
+          const specialHr = Number(item.special_hr) || 0;
+          const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+          const stackingHr = Number(item.stacking_hr) || 0;
+          const rigMoveHr = Number(item.rig_move_hr) || 0;
+          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+          const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+          const rates = ratesMap.get(item.rig_number);
+          let totalAmount = 0;
+          let totalFuelAmount = 0;
+          let operationAmount = 0, reduceAmount = 0, standbyAmount = 0, zeroAmount = 0, repairAmount = 0, amAmount = 0, specialAmount = 0, forceMajeureAmount = 0, stackingAmount = 0, rigMoveAmount = 0;
+          const rigMoveAmountApplied = Number(item.rig_move_amount_applied) || 0;
+
+          if (isHoistRig) {
+            totalAmount = Number(item.total_amount) || 0;
+          } else {
+            totalFuelAmount = rates ? (((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) + ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) + ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) + ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) + ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))) : 0;
+            operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+            reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+            standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+            zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+            repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+            amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+            specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+            forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+            stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+            rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+            totalAmount = rates ? (operationAmount + reduceAmount + standbyAmount + zeroAmount + repairAmount + amAmount + specialAmount + forceMajeureAmount + stackingAmount + rigMoveAmountApplied + totalFuelAmount) : 0;
+          }
+
+          return [
+            item.rig_number,
+            {
+              date: format(new Date(item.date), "dd-MMM-yy"), rig: item.rig_number, client: item.client || "", operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
+              forceMajeureHr, stackingHr, rigMoveHr, notReceivedDDOR: item.not_received_ddor || "", totalHrs, remarks: item.remarks || "", totalAmount, totalFuelAmount,
+              operationAmount, reduceAmount, standbyAmount, zeroAmount, repairAmount, amAmount, specialAmount, forceMajeureAmount, stackingAmount, rigMoveAmount,
+              rigMoveRateId: item.rig_move_rate_id || undefined, rigMoveAmountApplied,
+            }
+          ];
+        })
+      );
+
+      const configMap = new Map((rigConfigs || []).map(config => [config.rig_number, config.column_mappings]));
+
+      const fullData = RIGS.map(rig => {
+        const existingData = dataMap.get(rig);
+        if (existingData) return existingData;
+
+        const mappings = configMap.get(rig) as any[] || [];
+        const getFixedValue = (columnName: string) => {
+          const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
+          return mapping?.fixedValue || "";
+        };
+        
+        const getFixedNumber = (columnName: string) => {
+          const val = getFixedValue(columnName);
+          return val ? Number(val) : 0;
+        };
+
+        const operationHr = getFixedNumber("Operation Hr");
+        const reduceHr = getFixedNumber("Reduce Hr");
+        const standbyHr = getFixedNumber("Standby Hr");
+        const zeroHr = getFixedNumber("Zero Hr");
+        const repairHr = getFixedNumber("Repair Hr");
+        const amHr = getFixedNumber("AM Hr");
+        const specialHr = getFixedNumber("Special Hr");
+        const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+        const stackingHr = getFixedNumber("STACKING Hr");
+        const rigMoveHr = getFixedNumber("Rig Move Hr");
+        
+        const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+
+        const rates = ratesMap.get(rig);
+        const operationAmount = operationHr * (Number(rates?.operation_hr_rate) || 0);
+        const reduceAmount = reduceHr * (Number(rates?.reduce_hr_rate) || 0);
+        const standbyAmount = standbyHr * (Number(rates?.standby_hr_rate) || 0);
+        const zeroAmount = zeroHr * (Number(rates?.zero_hr_rate) || 0);
+        const repairAmount = repairHr * (Number(rates?.repair_hr_rate) || 0);
+        const amAmount = amHr * (Number(rates?.annual_maintenance_hr_rate) || 0);
+        const specialAmount = specialHr * (Number(rates?.special_hr_rate) || 0);
+        const forceMajeureAmount = forceMajeureHr * (Number(rates?.force_majeure_hr_rate) || 0);
+        const stackingAmount = stackingHr * (Number(rates?.stacking_hr_rate) || 0);
+        const rigMoveAmount = rigMoveHr * (Number(rates?.rig_move_hr_rate) || 0);
+        const totalAmount = rates ? (operationAmount + reduceAmount + standbyAmount + zeroAmount + repairAmount + amAmount + specialAmount + forceMajeureAmount + stackingAmount + rigMoveAmount) : 0;
+        const totalFuelAmount = rates ? (((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) + ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) + ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) + ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) + ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))) : 0;
+
+        return {
+          date: format(selectedDateFilter, "dd-MMM-yy"), rig: getFixedValue("Rig") || rig, client: getFixedValue("Client"), operationHr, reduceHr, standbyHr, zeroHr, repairHr, amHr, specialHr,
+          forceMajeureHr, stackingHr, rigMoveHr, notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"), totalHrs, remarks: getFixedValue("Remarks"), totalAmount, totalFuelAmount,
+          operationAmount, reduceAmount, standbyAmount, zeroAmount, repairAmount, amAmount, specialAmount, forceMajeureAmount, stackingAmount, rigMoveAmount,
+          rigMoveRateId: undefined, rigMoveAmountApplied: 0,
+        };
+      });
+
+      setData(fullData);
+      setSelectedRigToClear("");
+    } catch (error) {
+      console.error('Error clearing hours:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear hours",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
+  const handleEditRow = (rig: string) => {
+    const rowData = data.find(r => r.rig === rig);
+    if (rowData) {
+      setEditingRig(rig);
+      setEditedValues({ ...rowData });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRig(null);
+    setEditedValues({});
+  };
+
+  const handleFieldChange = (field: keyof DashboardData, value: string | number) => {
+    setEditedValues(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      if (field.includes('Hr') && field !== 'totalHrs') {
+        const totalHrs = (Number(updated.operationHr) || 0) + (Number(updated.reduceHr) || 0) + (Number(updated.standbyHr) || 0) + (Number(updated.zeroHr) || 0) + (Number(updated.repairHr) || 0) + (Number(updated.amHr) || 0) + (Number(updated.specialHr) || 0) + (Number(updated.forceMajeureHr) || 0) + (Number(updated.stackingHr) || 0) + (Number(updated.rigMoveHr) || 0);
+        updated.totalHrs = totalHrs;
+      }
+      
+      return updated;
+    });
+  };
+
+  const handleRigMoveRateChange = (rateId: string) => {
+    const selectedRate = actualRates.find(r => r.no === rateId);
+    if (!selectedRate) return;
+
+    const amountStr = selectedRate.usdAmount.replace(/[^0-9.-]/g, "");
+    const amount = parseFloat(amountStr) || 0;
+
+    setEditedValues(prev => ({
+      ...prev,
+      rigMoveRateId: rateId,
+      rigMoveAmountApplied: amount,
+    }));
+  };
+
+  const handleSaveRow = async () => {
+    if (!editingRig || !editedValues) return;
+
+    try {
+      const validationData = {
+        operationHr: Number(editedValues.operationHr) || 0, reduceHr: Number(editedValues.reduceHr) || 0, standbyHr: Number(editedValues.standbyHr) || 0,
+        zeroHr: Number(editedValues.zeroHr) || 0, repairHr: Number(editedValues.repairHr) || 0, amHr: Number(editedValues.amHr) || 0,
+        specialHr: Number(editedValues.specialHr) || 0, forceMajeureHr: Number(editedValues.forceMajeureHr) || 0, stackingHr: Number(editedValues.stackingHr) || 0,
+        rigMoveHr: Number(editedValues.rigMoveHr) || 0, client: String(editedValues.client || ""), notReceivedDDOR: String(editedValues.notReceivedDDOR || ""),
+        remarks: String(editedValues.remarks || ""),
+      };
+
+      const result = hourFieldSchema.safeParse(validationData);
+      if (!result.success) {
+        toast({ title: "Validation Error", description: result.error.errors[0].message, variant: "destructive" });
+        return;
+      }
+
+      setIsSaving(true);
+
+      const { data: existingData, error: checkError } = await supabase.from('extracted_ddor_data').select('id').eq('rig_number', editingRig).eq('date', dateStr).maybeSingle();
+      if (checkError) throw checkError;
+
+      const updateData = {
+        rig_number: editingRig, date: dateStr, client: validationData.client, operation_hr: validationData.operationHr, reduce_hr: validationData.reduceHr,
+        standby_hr: validationData.standbyHr, zero_hr: validationData.zeroHr, repair_hr: validationData.repairHr, am_hr: validationData.amHr, special_hr: validationData.specialHr,
+        force_majeure_hr: validationData.forceMajeureHr, stacking_hr: validationData.stackingHr, rig_move_hr: validationData.rigMoveHr,
+        not_received_ddor: validationData.notReceivedDDOR, remarks: validationData.remarks, rig_move_rate_id: editedValues.rigMoveRateId || null,
+        rig_move_amount_applied: editedValues.rigMoveAmountApplied || 0,
+        total_hrs: validationData.operationHr + validationData.reduceHr + validationData.standbyHr + validationData.zeroHr + validationData.repairHr + validationData.amHr + validationData.specialHr + validationData.forceMajeureHr + validationData.stackingHr + validationData.rigMoveHr,
+      };
+
+      if (existingData) {
+        const { error: updateError } = await supabase.from('extracted_ddor_data').update(updateData).eq('id', existingData.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase.from('extracted_ddor_data').insert(updateData);
+        if (insertError) throw insertError;
+      }
+
+      toast({ title: "Success", description: "Data saved successfully" });
+      window.location.reload();
+    } catch (error) {
+      console.error('Error saving data:', error);
+      toast({ title: "Error", description: "Failed to save data", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-center gap-4">
+        <Button variant="outline" size="icon" onClick={handlePreviousMonth}><ChevronLeft className="h-4 w-4" /></Button>
+        <h2 className="text-xl font-semibold">{format(currentMonth, "MMMM yyyy")}</h2>
+        <Button variant="outline" size="icon" onClick={handleNextMonth}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 justify-center">
+        {datesInMonth.map((date) => {
+          const isSelected = format(date, "yyyy-MM-dd") === format(selectedDateFilter, "yyyy-MM-dd");
+          return (
+            <Button key={date.toISOString()} variant={isSelected ? "default" : "outline"} size="sm" onClick={() => setSelectedDateFilter(date)}
+              className={cn("w-10 h-10 p-0", isSelected && "ring-2 ring-primary ring-offset-2")}>
+              {format(date, "d")}
+            </Button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Operation Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{totalOperationHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalOperationAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Reduce Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-500">{totalReduceHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalReduceAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Standby Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">{totalStandbyHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalStandbyAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Zero Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{totalZeroHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalZeroAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Repair Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{totalRepairHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalRepairAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">AM Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{totalAmHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalAmAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Special Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{totalSpecialHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalSpecialAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Force Majeure</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-pink-600">{totalForceMajeureHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalForceMajeureAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Stacking Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">{totalStackingHrs.toFixed(2)}</div>
+            <p className="text-xs text-primary mt-1">Utilization: {utilizationPercentage}%</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Rig Move Hours</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{totalRigMoveHrs.toFixed(2)}</div>
+            <p className="text-sm font-semibold text-foreground mt-2">${totalRigMoveAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-primary mt-1">{rigMoveRigsCount} rigs</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle>Main Consolidated Sheet</CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search by rig, client, or remarks..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+              </div>
+              <Select value={selectedRigToClear} onValueChange={setSelectedRigToClear}>
+                <SelectTrigger className="w-[180px] bg-background"><SelectValue placeholder="Select rig to clear" /></SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {RIGS.map((rig) => (<SelectItem key={rig} value={rig}>Rig {rig}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <Button variant="destructive" size="icon" onClick={handleClearHours} disabled={!selectedRigToClear} title="Clear selected rig hours"><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button>
+              <Button onClick={handleExport} variant="outline" className="gap-2"><Download className="h-4 w-4" />Export Current</Button>
+              
+              <div className="flex gap-2 items-center border-l pl-2">
+                <Popover>
+                  <PopoverTrigger asChild><Button variant="outline" size="sm" className="gap-2"><CalendarIcon className="h-4 w-4" />{dateRangeStart ? format(dateRangeStart, "dd-MMM-yy") : "Start Date"}</Button></PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={dateRangeStart} onSelect={setDateRangeStart} initialFocus /></PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild><Button variant="outline" size="sm" className="gap-2"><CalendarIcon className="h-4 w-4" />{dateRangeEnd ? format(dateRangeEnd, "dd-MMM-yy") : "End Date"}</Button></PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={dateRangeEnd} onSelect={setDateRangeEnd} initialFocus /></PopoverContent>
+                </Popover>
+                <Button onClick={handleDateRangeExport} className="gap-2" disabled={!dateRangeStart || !dateRangeEnd || isExportingRange}><Download className="h-4 w-4" />{isExportingRange ? "Exporting..." : "Export Range"}</Button>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-primary/90">
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Date</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Rig</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Client</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Operation Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Reduce Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Standby Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Zero Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Repair Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">AM Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Special Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Force Majeure Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">STACKING Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Rig Move Hr</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Rig Move Amount</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Not Received DDOR</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Total Hr.s</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Total Fuel</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Total Amount</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Remarks</TableHead>
+                    <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredData.map((row, index) => {
+                    const isEditing = editingRig === row.rig;
+                    const displayRow = isEditing ? editedValues : row;
+                    const availableRates = getRigMoveRatesForDate(row.rig, dateStr);
+                    
+                    return (
+                      <TableRow key={index} className={cn("hover:bg-muted/30", isEditing && "bg-accent/20")}>
+                        <TableCell className="font-medium whitespace-nowrap text-center px-2 py-1.5">{row.date}</TableCell>
+                        <TableCell className="whitespace-nowrap text-center px-2 py-1.5"><Badge variant="outline" className="font-mono text-xs">{row.rig}</Badge></TableCell>
+                        
+                        <TableCell className="text-center px-2 py-1.5">
+                          {isEditing ? <Input type="text" value={displayRow.client || ""} onChange={(e) => handleFieldChange('client', e.target.value)} className="h-7 text-sm text-center" /> : row.client}
+                        </TableCell>
+                        
+                        {['operationHr', 'reduceHr', 'standbyHr', 'zeroHr', 'repairHr', 'amHr', 'specialHr', 'forceMajeureHr', 'stackingHr', 'rigMoveHr'].map((field) => (
+                          <TableCell key={field} className="text-center px-2 py-1.5">
+                            {isEditing ? (
+                              <Input type="number" step="0.01" min="0" max="24" value={displayRow[field as keyof DashboardData] || 0}
+                                onChange={(e) => handleFieldChange(field as keyof DashboardData, parseFloat(e.target.value) || 0)} className="h-7 text-sm text-center w-20" />
+                            ) : ((row[field as keyof DashboardData] as number).toFixed(2))}
+                          </TableCell>
+                        ))}
+                        
+                        <TableCell className="text-center px-2 py-1.5">
+                          {isEditing && (displayRow.rigMoveHr || 0) > 0 ? (
+                            <Select value={displayRow.rigMoveRateId || ""} onValueChange={handleRigMoveRateChange}>
+                              <SelectTrigger className="h-7 text-sm w-full bg-background"><SelectValue placeholder="Select rate" /></SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                {availableRates.map((rate) => (
+                                  <SelectItem key={rate.no} value={rate.no}>{rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (<span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>)}
+                        </TableCell>
+                        
+                        <TableCell className="text-center px-2 py-1.5">
+                          {isEditing ? <Input type="text" value={displayRow.notReceivedDDOR || ""} onChange={(e) => handleFieldChange('notReceivedDDOR', e.target.value)} className="h-7 text-sm text-center w-16" /> : row.notReceivedDDOR}
+                        </TableCell>
+                        
+                        <TableCell className={cn("text-center font-semibold px-2 py-1.5", (displayRow.totalHrs || 0) !== 24 && (displayRow.totalHrs || 0) > 0 && "text-destructive")}>
+                          {(displayRow.totalHrs || 0).toFixed(2)}
+                          {(displayRow.totalHrs || 0) !== 24 && (displayRow.totalHrs || 0) > 0 && <span className="ml-1 text-xs">⚠️</span>}
+                        </TableCell>
+                        
+                        <TableCell className="text-center font-semibold text-blue-600 dark:text-blue-500 px-2 py-1.5">
+                          ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        
+                        <TableCell className="text-center font-semibold text-green-600 dark:text-green-500 px-2 py-1.5">
+                          ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        
+                        <TableCell className="max-w-md text-center px-2 py-1.5">
+                          {isEditing ? <Input type="text" value={displayRow.remarks || ""} onChange={(e) => handleFieldChange('remarks', e.target.value)} className="h-7 text-sm" /> : <span className="truncate" title={row.remarks}>{row.remarks}</span>}
+                        </TableCell>
+                        
+                        <TableCell className="text-center px-2 py-1.5">
+                          {isEditing ? (
+                            <div className="flex gap-1 justify-center">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveRow} disabled={isSaving}><Check className="h-4 w-4 text-green-600" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCancelEdit} disabled={isSaving}><X className="h-4 w-4 text-red-600" /></Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleEditRow(row.rig)}>Edit</Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          {loading && <div className="py-12 text-center text-muted-foreground"><p>Loading data...</p></div>}
+          {!loading && filteredData.length === 0 && <div className="py-12 text-center text-muted-foreground"><p>No records found matching your search criteria.</p></div>}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default DashboardView;
