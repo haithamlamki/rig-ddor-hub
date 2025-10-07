@@ -280,120 +280,6 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
   console.log('Extracting activity hours from sheet data...');
   
-  // Track header columns when available
-  let headerCols: { from?: string; to?: string; dur?: string; rate?: string } = {};
-  
-  // Helpers to detect section banners and day-range
-  const normalize = (s: any) => String(s ?? '').toUpperCase().trim();
-  const rowToText = (row: any) => Object.values(row ?? {}).map((v) => normalize(v)).join(' ');
-  const hasBannerRange = (text: string, fromH: number, toH: number) => {
-    const compact = text.replace(/\s+/g, ' ');
-    const fromStr = fromH.toString().padStart(2, '0');
-    const toStr = toH.toString().padStart(2, '0');
-    // Match patterns like "00:00 - TO - 06:00" or "00:00 - 06:00"
-    const re = new RegExp(`\\b${fromStr}:?00\\s*-\\s*(?:TO\\s*-\\s*)?${toStr}:?00\\b`);
-    return re.test(compact);
-  };
-  const hasFullDayBanner = (): boolean => {
-    for (const r of sheetData) {
-      const t = rowToText(r);
-      if (/\b0{1,2}:?0{2}\s*-\s*(?:TO\s*-\s*)?0{1,2}:?0{2}\b/.test(t)) return true; // 00:00 - 00:00 or 00:00 - to - 00:00
-      if (/\b00:00\s*-\s*00:00\s*OPERATION\b/.test(t)) return true; // explicit banner
-    }
-    return false;
-  };
-  
-  // Helper function to check if a value looks like a time (HH:MM format or decimal)
-  const looksLikeTime = (val: any): boolean => {
-    if (val === null || val === undefined) return false;
-    const str = String(val).trim();
-    const norm = str.replace(/;/g, ':');
-    // Check for HH:MM (supports ':' or ';') or Excel decimal day (<1)
-    return /^\d{1,2}:\d{2}$/.test(norm) || (!isNaN(parseFloat(str)) && parseFloat(str) < 1);
-  };
-
-  // Find the activity table by looking for "From", "TO", "Dur." headers OR time pattern rows
-  let activityTableStartRow = -1;
-  let hasHeaders = false;
-  
-  for (let i = 0; i < sheetData.length; i++) {
-    const row = sheetData[i];
-    if (!row || typeof row !== 'object') continue;
-
-    // Check if this row contains the headers (From, TO, Dur.) - case insensitive
-    const entries = Object.entries(row);
-    const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
-    const fromKey = byVal('from');
-    const toKey = byVal('to');
-    const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
-    const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
-
-    if (fromKey && toKey && durKey) {
-      activityTableStartRow = i + 1; // Start from next row (data rows)
-      hasHeaders = true;
-      headerCols = { from: fromKey, to: toKey, dur: durKey, rate: rateKey };
-      console.log('Found activity table with headers at row:', activityTableStartRow, 'cols:', headerCols);
-      break;
-    }
-    
-    // Alternative: Look for rows with time patterns (for sheets without headers)
-    // Check if first 3 columns look like times (start, end, duration)
-    const val0 = (row as any)['__EMPTY'];
-    const val1 = (row as any)['__EMPTY_1'];
-    const val2 = (row as any)['__EMPTY_2'];
-    
-    if (looksLikeTime(val0) && looksLikeTime(val1) && looksLikeTime(val2)) {
-      // Found a row that looks like time data
-      activityTableStartRow = i;
-      hasHeaders = false;
-      console.log('Found activity table without headers at row:', activityTableStartRow);
-      break;
-    }
-  }
-
-  if (activityTableStartRow === -1) {
-    console.log('Activity table not found in sheet data, attempting summary hours fallback');
-    // Fallback: parse summary boxes like "Operation Hours", "Rig Move Hours", etc.
-    const parseNum = (val: any): number => {
-      if (val === null || val === undefined) return 0;
-      if (typeof val === 'number') return Number(val);
-      const s = String(val).replace(/[^0-9.:]/g, '').trim();
-      if (!s) return 0;
-      // Times like H:MM are not expected here; treat as decimal hours if so
-      if (/:/.test(s)) {
-        const [h, m] = s.split(':');
-        const hours = parseInt(h || '0');
-        const mins = parseInt(m || '0');
-        return hours + mins / 60;
-      }
-      const n = parseFloat(s);
-      return isNaN(n) ? 0 : n;
-    };
-
-    for (const row of sheetData) {
-      if (!row || typeof row !== 'object') continue;
-      for (const [key, val] of Object.entries(row)) {
-        if (!key) continue;
-        const k = String(key).toLowerCase();
-        const num = parseNum(val);
-        if (!num) continue;
-        if (k.includes('operation hours')) aggregatedHours['Operation Hr'] += num;
-        else if (k.includes('rig move hours')) aggregatedHours['Rig Move Hr'] += num;
-        else if (k.includes('reduced') && k.includes('repair')) aggregatedHours['Reduce Hr'] += num; // combined box
-        else if (k.includes('stand by hours') || k.includes('standby hours')) aggregatedHours['Standby Hr'] += num;
-        else if (k.includes('zero hours')) aggregatedHours['Zero Hr'] += num;
-        else if (k.includes('am hours') || k.includes('annual maintenance')) aggregatedHours['AM Hr'] += num;
-        else if (k.includes('special')) aggregatedHours['Special Hr'] += num;
-        else if (k.includes('force majeure')) aggregatedHours['Force Majeure Hr'] += num;
-        else if (k.includes('stacking')) aggregatedHours['STACKING Hr'] += num;
-      }
-    }
-    console.log('Summary fallback hours:', aggregatedHours);
-    return aggregatedHours;
-  }
-
-  console.log('Processing activity table rows...');
-  
   // Helper: Convert time string/number to minutes after midnight
   const parseTimeToMinutes = (timeValue: any): number => {
     if (timeValue === null || timeValue === undefined) return -1;
@@ -409,253 +295,338 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     return h * 60 + m;
   };
   
-  // Detect section label - look backwards from activity table to find section header
-  let currentSectionLabel = '';
-  for (let i = activityTableStartRow - 1; i >= Math.max(0, activityTableStartRow - 10); i--) {
+  // Helper: Check if value looks like a time
+  const looksLikeTime = (val: any): boolean => {
+    if (val === null || val === undefined) return false;
+    const str = String(val).trim();
+    const norm = str.replace(/;/g, ':');
+    return /^\d{1,2}:\d{2}$/.test(norm) || (!isNaN(parseFloat(str)) && parseFloat(str) < 1);
+  };
+  
+  // Helper: Check if row has yellow fill (Excel fill color)
+  const hasYellowFill = (row: any): boolean => {
+    // Excel fills are in the 's' (style) property if available
+    // This is a simplified check - xlsx library may expose fill info differently
+    try {
+      if (row && typeof row === 'object') {
+        const rowStr = JSON.stringify(row);
+        // Check for common yellow fill indicators in Excel data
+        // Note: This may need adjustment based on how xlsx library exposes styling
+        return rowStr.includes('"fgColor":{"rgb":"FFFFFF00"') || 
+               rowStr.includes('"fgColor":{"rgb":"FFFF00"') ||
+               rowStr.includes('"bgColor":"yellow"');
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    return false;
+  };
+  
+  // Helper: Extract band label from text (e.g., "00:00 - 06:00")
+  const extractBandLabel = (text: string): string | null => {
+    const normalized = text.toUpperCase().replace(/\s+/g, ' ').trim();
+    // Match patterns like "00:00 - 06:00" or "00:00-06:00" or "0:00 - 6:00"
+    const match = normalized.match(/(\d{1,2}):?(\d{2})?\s*-\s*(\d{1,2}):?(\d{2})?/);
+    if (match) {
+      const fromH = match[1].padStart(2, '0');
+      const fromM = (match[2] || '00').padStart(2, '0');
+      const toH = match[3].padStart(2, '0');
+      const toM = (match[4] || '00').padStart(2, '0');
+      return `${fromH}:${fromM} - ${toH}:${toM}`;
+    }
+    return null;
+  };
+  
+  // Helper: Check if band label is "00:00 - 06:00"
+  const isMorningBand = (bandLabel: string): boolean => {
+    return bandLabel === '00:00 - 06:00' || bandLabel === '0:00 - 06:00';
+  };
+  
+  // Helper: Convert row to text for searching
+  const rowToText = (row: any): string => {
+    if (!row || typeof row !== 'object') return '';
+    return Object.values(row).map(v => String(v ?? '')).join(' ');
+  };
+  
+  // Step 1: Find all activity blocks (each has a band label + header row)
+  interface ActivityBlock {
+    bandLabel: string;
+    bandRow: number;
+    headerRow: number;
+    dataStartRow: number;
+    headerCols: { from?: string; to?: string; dur?: string; rate?: string };
+  }
+  
+  const blocks: ActivityBlock[] = [];
+  
+  for (let i = 0; i < sheetData.length - 1; i++) {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
-    const rowText = rowToText(row).toUpperCase();
     
-    // Look for patterns like "00:00 - 00:00 OPERATION" or "00:00 - 06:00 OPERATION"
-    const match = rowText.match(/(\d{1,2}):(\d{2})\s*-\s*(?:TO\s*-\s*)?(\d{1,2}):(\d{2})/);
-    if (match) {
-      currentSectionLabel = rowText;
-      console.log('Detected section label:', currentSectionLabel, 'at row:', i);
-      break;
+    const rowText = rowToText(row);
+    const bandLabel = extractBandLabel(rowText);
+    
+    if (bandLabel) {
+      // Found a potential band label, look for header row in next few rows
+      for (let j = i + 1; j < Math.min(i + 5, sheetData.length); j++) {
+        const headerRow = sheetData[j];
+        if (!headerRow || typeof headerRow !== 'object') continue;
+        
+        // Check if this row contains "From", "TO", "Dur." headers
+        const entries = Object.entries(headerRow);
+        const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+        const fromKey = byVal('from');
+        const toKey = byVal('to');
+        const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+        const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
+        
+        if (fromKey && toKey && durKey) {
+          // Found header row for this block
+          blocks.push({
+            bandLabel,
+            bandRow: i,
+            headerRow: j,
+            dataStartRow: j + 1,
+            headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey }
+          });
+          console.log(`Found activity block: "${bandLabel}" at rows ${i}-${j}`);
+          break;
+        }
+      }
     }
   }
   
-  // Rule B: Skip entire section if it's labeled "00:00 - 06:00"
-  if (currentSectionLabel) {
-    const match = currentSectionLabel.match(/00:00\s*-\s*(?:TO\s*-\s*)?06:00/);
-    if (match) {
-      console.log('Section is "00:00 - 06:00" - skipping per Rule B');
-      return aggregatedHours;
-    }
-  }
-  
-  // Process activity table rows (Rule A: 00:00 - 00:00 table)
-  let hasCompletedFullDay = false; // Track if we've seen the end of a 24-hour cycle
-  
-  for (let i = activityTableStartRow; i < sheetData.length; i++) {
-    const row = sheetData[i];
-    if (!row || typeof row !== 'object') continue;
-
-    // Check if this row is a new section header (Rule B check)
-    const rowText = rowToText(row).toUpperCase();
+  // If no blocks found with band labels, try to find standalone activity table
+  if (blocks.length === 0) {
+    console.log('No band-labeled blocks found, searching for standalone activity table...');
     
-    // Detect section headers with time ranges (e.g., "00:00 - 6:00 OPERATION")
-    // Look for patterns like "FROM TO DUR. 00:00 - 6:00" or just "00:00 - 6:00 OPERATION"
-    const sectionHeaderMatch = rowText.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
-    if (sectionHeaderMatch) {
-      const startHour = parseInt(sectionHeaderMatch[1]);
-      const startMin = parseInt(sectionHeaderMatch[2]);
-      const endHour = parseInt(sectionHeaderMatch[3]);
-      const endMin = parseInt(sectionHeaderMatch[4]);
+    for (let i = 0; i < sheetData.length; i++) {
+      const row = sheetData[i];
+      if (!row || typeof row !== 'object') continue;
       
-      // If this is a "00:00 - 06:00" or "00:00 - 6:00" section header, stop (Rule B)
-      if (startHour === 0 && startMin === 0 && endHour === 6 && endMin === 0) {
-        console.log('Encountered "00:00 - 6:00" section header at row:', i, '- stopping per Rule B');
-        break;
-      }
+      const entries = Object.entries(row);
+      const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+      const fromKey = byVal('from');
+      const toKey = byVal('to');
+      const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+      const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
       
-      // If we see a header with a time range and this isn't the first table, we've hit a new section
-      if (i > activityTableStartRow + 5) {
-        console.log('Encountered new time-range section at row:', i, '- stopping to avoid double-counting');
+      if (fromKey && toKey && durKey) {
+        blocks.push({
+          bandLabel: '00:00 - 00:00', // Default to full-day band
+          bandRow: i - 1,
+          headerRow: i,
+          dataStartRow: i + 1,
+          headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey }
+        });
+        console.log('Found standalone activity table at row:', i);
         break;
       }
-    }
-    
-    // Also check for banner patterns (older logic for compatibility)
-    if (hasBannerRange(rowText, 0, 6)) {
-      console.log('Encountered "00:00 - 06:00" banner at row:', i, '- stopping per Rule B');
-      break;
-    }
-
-    // Check if this is a data row by looking at From column
-    const fromValue = headerCols.from ? (row as any)[headerCols.from] : (row as any)['__EMPTY'];
-    if (fromValue === null || fromValue === undefined) continue;
-    
-    // Skip section headers and empty rows
-    const fromStr = String(fromValue).trim();
-    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update') || fromStr.includes('From')) {
-      // If we hit another section header, stop
-      if (fromStr.includes('06:00') || fromStr.includes('6:00') || fromStr.includes('00:00 -')) {
-        console.log('Encountered new section header at row:', i, '- stopping');
-        break;
-      }
-      continue;
-    }
-    
-    // Skip non-time rows
-    if (!looksLikeTime(fromValue)) {
-      continue;
-    }
-
-    // Parse From and TO times into minutes after midnight
-    const fromMinutes = parseTimeToMinutes(fromValue);
-    if (fromMinutes < 0) continue;
-    
-    const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
-    let toMinutes = parseTimeToMinutes(toValue);
-    
-    // Rule B: If we've completed a full day and see a new activity starting at 0:00, it's likely the next day's table - stop
-    // This catches patterns like 0:00-6:00, 0:00-0:30, etc. that appear after a full day
-    if (hasCompletedFullDay && fromMinutes === 0) {
-      // If we see a new 0:00 start after completing the day, check if it's a new section
-      // Allow the first few minutes after midnight (continuation of same day), but not a fresh restart
-      if (toMinutes > 0 && toMinutes <= 360) {
-        // This looks like a new day's early hours table (0:00-6:00 or similar)
-        console.log(`Row ${i}: Detected next day's activity (0:00-${Math.floor(toMinutes/60)}:${String(toMinutes%60).padStart(2,'0')}) after completing full day - stopping per Rule B`);
-        break;
-      }
-    }
-    
-    // Rule A: Treat TO == 00:00 as 24:00 (1440 minutes) for same-day calculation
-    if (toMinutes === 0 && fromMinutes > 0) {
-      toMinutes = 1440; // 24:00
-      hasCompletedFullDay = true; // Mark that we've reached end of day
-      console.log(`Row ${i}: TO is 00:00, treating as 24:00 (end of day)`);
-    }
-    
-    // Calculate duration from From/To (Rule A logic)
-    let minsFromTo = 0;
-    if (toMinutes >= 0) {
-      if (toMinutes < fromMinutes) {
-        // Wrap past midnight - clamp TO to 1440 (end of current day)
-        toMinutes = 1440;
-        console.log(`Row ${i}: TO < FROM (wrap detected), clamping TO to 24:00`);
-      }
-      minsFromTo = Math.max(0, Math.min(toMinutes, 1440) - fromMinutes);
-    }
-    
-    // Parse Dur. column into minutes
-    const durationValue = headerCols.dur ? (row as any)[headerCols.dur] : (row as any)['__EMPTY_2'];
-    let minsDur = 0;
-    if (durationValue !== null && durationValue !== undefined) {
-      if (typeof durationValue === 'number') {
-        minsDur = Math.round(durationValue * 24 * 60);
-      } else {
-        const durStr = String(durationValue).trim().replace(/;/g, ':');
-        if (durStr.includes(':')) {
-          const parts = durStr.split(':');
-          const h = parseInt(parts[0] || '0');
-          const m = parseInt(parts[1] || '0');
-          minsDur = h * 60 + m;
-        } else {
-          const parsed = parseFloat(durStr);
-          if (!isNaN(parsed)) minsDur = Math.round(parsed * 24 * 60);
-        }
-      }
-    }
-    
-    // Double-validation: Take minimum of calculated duration and Dur. column
-    let finalMinutes = 0;
-    if (minsFromTo > 0 && minsDur > 0) {
-      finalMinutes = Math.min(minsFromTo, minsDur);
-      const diff = Math.abs(minsFromTo - minsDur);
-      if (diff > 2) {
-        console.log(`Row ${i} WARNING: Duration difference ${diff} mins (FromTo=${minsFromTo}, Dur=${minsDur}), using min=${finalMinutes}`);
-      }
-    } else if (minsFromTo > 0) {
-      finalMinutes = minsFromTo;
-    } else if (minsDur > 0) {
-      finalMinutes = minsDur;
-    }
-    
-    const hours = finalMinutes / 60;
-    if (hours === 0) continue;
-
-    // Look for rate type across known columns first, then all string cells in the row
-    let rateType = '';
-    // 1) Prefer explicit Rate column if we detected it
-    if (headerCols.rate) {
-      const rateVal = (row as any)[headerCols.rate];
-      if (rateVal != null) {
-        const rv = String(rateVal).trim().toUpperCase();
-        const cleaned = rv.replace(/[\/\-\s]/g, '').replace('RATE', '');
-        if (rateTypeMapping[rv]) rateType = rv;
-        else if (rateTypeMapping[cleaned]) rateType = cleaned;
-        else {
-          const fuzzy = findBestRateTypeMatch(rv);
-          if (fuzzy) rateType = fuzzy;
-        }
-      }
-    }
-    // 2) Try scanning typical columns
-    if (!rateType) {
-      for (let colIdx = 20; colIdx >= 0; colIdx--) {
-        const colName = colIdx === 0 ? '__EMPTY' : `__EMPTY_${colIdx}`;
-        const rawVal = (row as any)[colName];
-        const cellValue = String(rawVal ?? '').trim().toUpperCase();
-        if (!cellValue) continue;
-        const cleanedValue = cellValue.replace(/[\/\-\s]/g, '').replace('RATE', '');
-        if (rateTypeMapping[cellValue]) { rateType = cellValue; break; }
-        if (rateTypeMapping[cleanedValue]) { rateType = cleanedValue; break; }
-        if (cellValue.length > 1) {
-          const fuzzyMatch = findBestRateTypeMatch(cellValue);
-          if (fuzzyMatch) { rateType = fuzzyMatch; break; }
-        }
-      }
-    }
-    // 3) Fallback: scan all values in the row
-    if (!rateType) {
-      for (const [k, v] of Object.entries(row)) {
-        if (v == null) continue;
-        const valStr = String(v).trim().toUpperCase();
-        if (!valStr || valStr === String(fromValue).toUpperCase() || valStr === String(durationValue).toUpperCase()) continue;
-        const cleaned = valStr.replace(/[\/\-\s]/g, '').replace('RATE', '');
-        if (rateTypeMapping[valStr]) { rateType = valStr; break; }
-        if (rateTypeMapping[cleaned]) { rateType = cleaned; break; }
-        if (valStr.length > 1) {
-          const fuzzy = findBestRateTypeMatch(valStr);
-          if (fuzzy) { rateType = fuzzy; break; }
-        }
-      }
-    }
-
-    if (hours > 0 && rateType) {
-      const targetField = rateTypeMapping[rateType];
-      if (targetField) {
-        aggregatedHours[targetField] += hours;
-        console.log(`Added ${hours.toFixed(2)} hours to ${targetField} from rate type ${rateType}`);
-      } else {
-        console.log(`Warning: Found hours ${hours.toFixed(2)} but rate type ${rateType} not in mapping`);
-      }
-    } else if (hours > 0) {
-      console.log(`Warning: Found ${hours.toFixed(2)} hours but no matching rate type in row ${i}`);
     }
   }
-
-  // If nothing captured, try summary labels fallback scanning values
-  const allZero = Object.values(aggregatedHours).every(v => v === 0);
-  if (allZero) {
-    const pickNumberInRow = (row: any): number => {
-      let best = 0;
-      for (const v of Object.values(row)) {
-        if (v == null) continue;
-        const s = String(v).trim();
-        // Prefer numbers like 14 or 6.00
-        const n = parseFloat(s);
-        if (!isNaN(n)) best = Math.max(best, n);
+  
+  if (blocks.length === 0) {
+    console.log('No activity tables found, attempting summary fallback...');
+    // Fallback: Try to parse summary boxes
+    const parseNum = (val: any): number => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'number') return Number(val);
+      const s = String(val).replace(/[^0-9.:]/g, '').trim();
+      if (!s) return 0;
+      if (/:/.test(s)) {
+        const [h, m] = s.split(':');
+        return (parseInt(h || '0') || 0) + (parseInt(m || '0') || 0) / 60;
       }
-      return best;
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
     };
+    
     for (const row of sheetData) {
       if (!row || typeof row !== 'object') continue;
-      const vals = Object.values(row).map(v => String(v ?? '').toLowerCase());
-      if (vals.some(t => t.includes('operation hours'))) aggregatedHours['Operation Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('rig move hours'))) aggregatedHours['Rig Move Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('reduced') && t.includes('repair'))) aggregatedHours['Reduce Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('stand by hours') || t.includes('standby hours'))) aggregatedHours['Standby Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('zero hours'))) aggregatedHours['Zero Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('am hours') || t.includes('annual maintenance'))) aggregatedHours['AM Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('special'))) aggregatedHours['Special Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('force majeure'))) aggregatedHours['Force Majeure Hr'] += pickNumberInRow(row);
-      if (vals.some(t => t.includes('stacking'))) aggregatedHours['STACKING Hr'] += pickNumberInRow(row);
+      for (const [key, val] of Object.entries(row)) {
+        if (!key) continue;
+        const k = String(key).toLowerCase();
+        const num = parseNum(val);
+        if (!num) continue;
+        if (k.includes('operation hours')) aggregatedHours['Operation Hr'] += num;
+        else if (k.includes('rig move hours')) aggregatedHours['Rig Move Hr'] += num;
+        else if (k.includes('reduced') && k.includes('repair')) aggregatedHours['Reduce Hr'] += num;
+        else if (k.includes('stand by hours') || k.includes('standby hours')) aggregatedHours['Standby Hr'] += num;
+        else if (k.includes('zero hours')) aggregatedHours['Zero Hr'] += num;
+        else if (k.includes('am hours') || k.includes('annual maintenance')) aggregatedHours['AM Hr'] += num;
+        else if (k.includes('special')) aggregatedHours['Special Hr'] += num;
+        else if (k.includes('force majeure')) aggregatedHours['Force Majeure Hr'] += num;
+        else if (k.includes('stacking')) aggregatedHours['STACKING Hr'] += num;
+      }
+    }
+    
+    console.log('Summary fallback hours:', aggregatedHours);
+    return aggregatedHours;
+  }
+  
+  // Step 2: Process blocks
+  let totalMinutes = 0;
+  let yellowCutoffReached = false;
+  
+  for (const block of blocks) {
+    if (yellowCutoffReached) {
+      console.log(`Skipping block "${block.bandLabel}" - yellow cut-off already reached`);
+      break;
+    }
+    
+    // Skip "00:00 - 06:00" bands
+    if (isMorningBand(block.bandLabel)) {
+      console.log(`Skipping block "${block.bandLabel}" - morning band rule`);
+      continue;
+    }
+    
+    console.log(`Processing block: "${block.bandLabel}"`);
+    
+    // Process data rows in this block
+    for (let i = block.dataStartRow; i < sheetData.length; i++) {
+      const row = sheetData[i];
+      if (!row || typeof row !== 'object') continue;
+      
+      // Check for yellow fill - if found, stop processing this and all subsequent blocks
+      if (hasYellowFill(row)) {
+        console.log(`Yellow row detected at row ${i} - stopping all processing`);
+        yellowCutoffReached = true;
+        break;
+      }
+      
+      // Check if we've hit another block's band label or header
+      const rowText = rowToText(row);
+      if (extractBandLabel(rowText)) {
+        console.log(`Hit next block at row ${i} - stopping current block`);
+        break;
+      }
+      
+      // Get From, TO, Dur values
+      const fromValue = (row as any)[block.headerCols.from!];
+      const toValue = (row as any)[block.headerCols.to!];
+      const durValue = (row as any)[block.headerCols.dur!];
+      
+      if (fromValue === null || fromValue === undefined) continue;
+      
+      // Skip non-time rows
+      if (!looksLikeTime(fromValue)) continue;
+      
+      // Parse times
+      let fromMinutes = parseTimeToMinutes(fromValue);
+      let toMinutes = parseTimeToMinutes(toValue);
+      
+      if (fromMinutes < 0) continue;
+      
+      // Skip rows where From == TO (e.g., 0:00 - 0:00 with bogus duration)
+      if (fromMinutes === toMinutes) {
+        console.log(`Row ${i}: Skipping From==TO (${fromMinutes} mins)`);
+        continue;
+      }
+      
+      // Treat TO=00:00 as 24:00 (1440 minutes)
+      if (toMinutes === 0 && fromMinutes > 0) {
+        toMinutes = 1440;
+        console.log(`Row ${i}: TO is 00:00, treating as 24:00`);
+      }
+      
+      // If TO < FROM, clamp TO to 24:00 (drop spill to next day)
+      if (toMinutes >= 0 && toMinutes < fromMinutes) {
+        console.log(`Row ${i}: TO < FROM (${toMinutes} < ${fromMinutes}), clamping TO to 1440`);
+        toMinutes = 1440;
+      }
+      
+      // Compute mins_from_to = max(0, min(TO, 1440) - From)
+      const minsFromTo = Math.max(0, Math.min(toMinutes >= 0 ? toMinutes : 1440, 1440) - fromMinutes);
+      
+      // Parse Dur. → mins_dur
+      let minsDur = 0;
+      if (durValue !== null && durValue !== undefined) {
+        if (typeof durValue === 'number') {
+          minsDur = Math.round(durValue * 24 * 60);
+        } else {
+          const durStr = String(durValue).trim().replace(/;/g, ':');
+          if (durStr.includes(':')) {
+            const parts = durStr.split(':');
+            const h = parseInt(parts[0] || '0');
+            const m = parseInt(parts[1] || '0');
+            minsDur = h * 60 + m;
+          } else {
+            const parsed = parseFloat(durStr);
+            if (!isNaN(parsed)) minsDur = Math.round(parsed * 60);
+          }
+        }
+      }
+      
+      // row_minutes = min(mins_from_to, mins_dur) - double validation
+      const rowMinutes = Math.min(minsFromTo, minsDur);
+      
+      if (rowMinutes <= 0) continue;
+      
+      console.log(`Row ${i}: From=${fromMinutes}, TO=${toMinutes}, minsFromTo=${minsFromTo}, minsDur=${minsDur}, rowMinutes=${rowMinutes}`);
+      
+      // Find rate type
+      let rateType = '';
+      
+      // Try rate column first
+      if (block.headerCols.rate) {
+        const rateVal = (row as any)[block.headerCols.rate];
+        if (rateVal != null) {
+          const rv = String(rateVal).trim().toUpperCase();
+          const cleaned = rv.replace(/[\/\-\s]/g, '').replace('RATE', '');
+          if (rateTypeMapping[rv]) rateType = rv;
+          else if (rateTypeMapping[cleaned]) rateType = cleaned;
+          else {
+            const fuzzy = findBestRateTypeMatch(rv);
+            if (fuzzy) rateType = fuzzy;
+          }
+        }
+      }
+      
+      // Scan all cells in row if not found
+      if (!rateType) {
+        for (const [k, v] of Object.entries(row)) {
+          if (v == null) continue;
+          const valStr = String(v).trim().toUpperCase();
+          if (!valStr || valStr === String(fromValue).toUpperCase() || valStr === String(durValue).toUpperCase()) continue;
+          const cleaned = valStr.replace(/[\/\-\s]/g, '').replace('RATE', '');
+          if (rateTypeMapping[valStr]) { rateType = valStr; break; }
+          if (rateTypeMapping[cleaned]) { rateType = cleaned; break; }
+          if (valStr.length > 1) {
+            const fuzzy = findBestRateTypeMatch(valStr);
+            if (fuzzy) { rateType = fuzzy; break; }
+          }
+        }
+      }
+      
+      // Add to totals
+      if (rateType && rateTypeMapping[rateType]) {
+        const targetField = rateTypeMapping[rateType];
+        const hours = rowMinutes / 60;
+        aggregatedHours[targetField] += hours;
+        totalMinutes += rowMinutes;
+        console.log(`Added ${hours.toFixed(2)} hours to ${targetField} from rate type ${rateType}`);
+      } else if (rowMinutes > 0) {
+        // Default to Operation Hr if no rate type found
+        const hours = rowMinutes / 60;
+        aggregatedHours['Operation Hr'] += hours;
+        totalMinutes += rowMinutes;
+        console.log(`Added ${hours.toFixed(2)} hours to Operation Hr (no rate type found)`);
+      }
     }
   }
-
+  
+  // Cap total at 1440 minutes (24 hours)
+  const cappedMinutes = Math.min(totalMinutes, 1440);
+  if (totalMinutes > 1440) {
+    console.log(`WARNING: Total minutes (${totalMinutes}) exceeds 24 hours, capping to 1440`);
+    // Scale down all hours proportionally
+    const scaleFactor = cappedMinutes / totalMinutes;
+    for (const key of Object.keys(aggregatedHours)) {
+      aggregatedHours[key] *= scaleFactor;
+    }
+  }
+  
+  console.log(`Total minutes: ${totalMinutes}, capped: ${cappedMinutes}`);
   console.log('Aggregated hours:', aggregatedHours);
   return aggregatedHours;
 }
