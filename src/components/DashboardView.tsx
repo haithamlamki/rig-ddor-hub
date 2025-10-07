@@ -178,10 +178,8 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     loadActualRates();
   }, []);
 
-  // Helper: Get rig move rates valid for a specific date and rig
+  // Helper: Get rig move rates for a specific rig (no date validation)
   const getRigMoveRatesForDate = (rigNumber: string, dateStr: string): ActualRate[] => {
-    const targetDate = parseISO(dateStr);
-    
     const filtered = actualRates.filter(rate => {
       if (rate.rig !== rigNumber) return false;
 
@@ -189,56 +187,11 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       const amountNum = parseFloat((rate.usdAmount || '').replace(/[^0-9.-]/g, ''));
       if (isNaN(amountNum) || amountNum <= 0) return false;
       
-      // Parse date strings (format: "44927" Excel serial or "DD/MM/YYYY")
-      const parseExcelDate = (dateStr: string): Date => {
-        // Try Excel serial number first
-        const serial = parseFloat(dateStr);
-        if (!isNaN(serial)) {
-          // Excel epoch is 1899-12-30
-          const excelEpoch = new Date(1899, 11, 30);
-          excelEpoch.setDate(excelEpoch.getDate() + serial);
-          return excelEpoch;
-        }
-        // Try regular date parse
-        return parseISO(dateStr);
-      };
-
-      try {
-        // If we have both dates and can parse them, apply the interval filter
-        if (rate.validFrom && rate.validTo) {
-          const validFrom = parseExcelDate(rate.validFrom);
-          const validTo = parseExcelDate(rate.validTo);
-          const isValid = isWithinInterval(targetDate, { start: validFrom, end: validTo });
-          return isValid;
-        }
-        // If dates are missing, consider the rate valid
-        return true;
-      } catch (e) {
-        console.warn("Date parse issue, including rate anyway:", rate, e);
-        return true;
-      }
+      return true;
     });
     
-    // Sort by validFrom (latest first) to pre-select most recent rate
-    const sorted = filtered.sort((a, b) => {
-      try {
-        const parseExcelDate = (dateStr: string): Date => {
-          const serial = parseFloat(dateStr);
-          if (!isNaN(serial)) {
-            const excelEpoch = new Date(1899, 11, 30);
-            excelEpoch.setDate(excelEpoch.getDate() + serial);
-            return excelEpoch;
-          }
-          return parseISO(dateStr);
-        };
-        
-        const dateA = parseExcelDate(a.validFrom || '0');
-        const dateB = parseExcelDate(b.validFrom || '0');
-        return dateB.getTime() - dateA.getTime(); // Descending (latest first)
-      } catch {
-        return 0;
-      }
-    });
+    // Sort by description to group similar rates together
+    const sorted = filtered.sort((a, b) => a.description.localeCompare(b.description));
     
     return sorted;
   };
