@@ -355,6 +355,7 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     headerRow: number;
     dataStartRow: number;
     headerCols: { from?: string; to?: string; dur?: string; rate?: string };
+    firstFromTime: number; // Track first activity's FROM time to detect 00:00-06:00 blocks
   }
   
   const blocks: ActivityBlock[] = [];
@@ -381,24 +382,36 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
         const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
         
         if (fromKey && toKey && durKey) {
-          // Found header row for this block
+          // Found header row for this block - peek at first data row to get firstFromTime
+          let firstFromTime = -1;
+          for (let k = j + 1; k < Math.min(j + 10, sheetData.length); k++) {
+            const dataRow = sheetData[k];
+            if (!dataRow) continue;
+            const fromVal = (dataRow as any)[fromKey];
+            if (looksLikeTime(fromVal)) {
+              firstFromTime = parseTimeToMinutes(fromVal);
+              break;
+            }
+          }
+          
           blocks.push({
             bandLabel,
             bandRow: i,
             headerRow: j,
             dataStartRow: j + 1,
-            headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey }
+            headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey },
+            firstFromTime
           });
-          console.log(`Found activity block: "${bandLabel}" at rows ${i}-${j}`);
+          console.log(`Found activity block: "${bandLabel}" at rows ${i}-${j}, firstFromTime=${firstFromTime}`);
           break;
         }
       }
     }
   }
   
-  // If no blocks found with band labels, try to find standalone activity table
+  // If no blocks found with band labels, try to find ALL standalone activity tables
   if (blocks.length === 0) {
-    console.log('No band-labeled blocks found, searching for standalone activity table...');
+    console.log('No band-labeled blocks found, searching for all activity tables...');
     
     for (let i = 0; i < sheetData.length; i++) {
       const row = sheetData[i];
@@ -412,15 +425,43 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
       
       if (fromKey && toKey && durKey) {
+        // Peek at first data row to determine if this is a morning block (00:00-06:00)
+        let firstFromTime = -1;
+        let lastToTime = -1;
+        for (let k = i + 1; k < Math.min(i + 20, sheetData.length); k++) {
+          const dataRow = sheetData[k];
+          if (!dataRow) continue;
+          const fromVal = (dataRow as any)[fromKey];
+          const toVal = (dataRow as any)[toKey];
+          if (looksLikeTime(fromVal)) {
+            if (firstFromTime === -1) {
+              firstFromTime = parseTimeToMinutes(fromVal);
+            }
+            if (looksLikeTime(toVal)) {
+              const toMins = parseTimeToMinutes(toVal);
+              if (toMins > lastToTime) lastToTime = toMins;
+            }
+          }
+        }
+        
+        // Infer band label based on activity times
+        let inferredBandLabel = '00:00 - 00:00'; // Default to full-day
+        if (firstFromTime === 0 && lastToTime > 0 && lastToTime <= 360) {
+          inferredBandLabel = '00:00 - 06:00'; // Morning block
+          console.log(`Inferred morning band (00:00 - 06:00) from data: firstFrom=${firstFromTime}, lastTo=${lastToTime}`);
+        }
+        
         blocks.push({
-          bandLabel: '00:00 - 00:00', // Default to full-day band
+          bandLabel: inferredBandLabel,
           bandRow: i - 1,
           headerRow: i,
           dataStartRow: i + 1,
-          headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey }
+          headerCols: { from: fromKey, to: toKey, dur: durKey, rate: rateKey },
+          firstFromTime
         });
-        console.log('Found standalone activity table at row:', i);
-        break;
+        console.log(`Found standalone activity table at row ${i}, inferred band: "${inferredBandLabel}"`);
+        
+        // Continue searching for more tables (don't break)
       }
     }
   }
