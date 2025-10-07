@@ -499,10 +499,16 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
     let toMinutes = parseTimeToMinutes(toValue);
     
-    // Rule B: If we've completed a full day and see a new 0:00-6:00 row, it's the next day's table - stop
-    if (hasCompletedFullDay && fromMinutes === 0 && toMinutes === 360) {
-      console.log(`Row ${i}: Detected next day's 0:00-6:00 table after completing full day - stopping per Rule B`);
-      break;
+    // Rule B: If we've completed a full day and see a new activity starting at 0:00, it's likely the next day's table - stop
+    // This catches patterns like 0:00-6:00, 0:00-0:30, etc. that appear after a full day
+    if (hasCompletedFullDay && fromMinutes === 0) {
+      // If we see a new 0:00 start after completing the day, check if it's a new section
+      // Allow the first few minutes after midnight (continuation of same day), but not a fresh restart
+      if (toMinutes > 0 && toMinutes <= 360) {
+        // This looks like a new day's early hours table (0:00-6:00 or similar)
+        console.log(`Row ${i}: Detected next day's activity (0:00-${Math.floor(toMinutes/60)}:${String(toMinutes%60).padStart(2,'0')}) after completing full day - stopping per Rule B`);
+        break;
+      }
     }
     
     // Rule A: Treat TO == 00:00 as 24:00 (1440 minutes) for same-day calculation
