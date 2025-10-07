@@ -446,6 +446,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const stackedRigsCount = nonHoistData.filter(row => row.stackingHr > 0).length;
   const stackingPercentage = ((stackedRigsCount / 27) * 100).toFixed(1);
   const utilizationPercentage = (((27 - stackedRigsCount) / 27) * 100).toFixed(1);
+  
+  // Calculate rig move count
+  const rigMoveRigsCount = nonHoistData.filter(row => row.rigMoveHr > 0).length;
 
   const handleExport = () => {
     const csvContent = [
@@ -1212,6 +1215,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           <CardContent>
             <div className="text-2xl font-bold text-primary">{totalRigMoveHrs.toFixed(2)}</div>
             <p className="text-sm font-semibold text-foreground mt-2">${totalRigMoveAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-primary mt-1">{rigMoveRigsCount} rigs</p>
           </CardContent>
         </Card>
       </div>
