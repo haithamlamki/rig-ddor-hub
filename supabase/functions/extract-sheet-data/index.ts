@@ -439,10 +439,34 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
 
-    // Check if this is the start of a new section (Rule B check)
-    const rowText = rowToText(row);
+    // Check if this row is a new section header (Rule B check)
+    const rowText = rowToText(row).toUpperCase();
+    
+    // Detect section headers with time ranges (e.g., "00:00 - 6:00 OPERATION")
+    // Look for patterns like "FROM TO DUR. 00:00 - 6:00" or just "00:00 - 6:00 OPERATION"
+    const sectionHeaderMatch = rowText.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+    if (sectionHeaderMatch) {
+      const startHour = parseInt(sectionHeaderMatch[1]);
+      const startMin = parseInt(sectionHeaderMatch[2]);
+      const endHour = parseInt(sectionHeaderMatch[3]);
+      const endMin = parseInt(sectionHeaderMatch[4]);
+      
+      // If this is a "00:00 - 06:00" or "00:00 - 6:00" section header, stop (Rule B)
+      if (startHour === 0 && startMin === 0 && endHour === 6 && endMin === 0) {
+        console.log('Encountered "00:00 - 6:00" section header at row:', i, '- stopping per Rule B');
+        break;
+      }
+      
+      // If we see a header with a time range and this isn't the first table, we've hit a new section
+      if (i > activityTableStartRow + 5) {
+        console.log('Encountered new time-range section at row:', i, '- stopping to avoid double-counting');
+        break;
+      }
+    }
+    
+    // Also check for banner patterns (older logic for compatibility)
     if (hasBannerRange(rowText, 0, 6)) {
-      console.log('Encountered "00:00 - 06:00" section at row:', i, '- stopping per Rule B');
+      console.log('Encountered "00:00 - 06:00" banner at row:', i, '- stopping per Rule B');
       break;
     }
 
@@ -454,7 +478,7 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
     const fromStr = String(fromValue).trim();
     if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update') || fromStr.includes('From')) {
       // If we hit another section header, stop
-      if (fromStr.includes('06:00') || fromStr.includes('00:00 -')) {
+      if (fromStr.includes('06:00') || fromStr.includes('6:00') || fromStr.includes('00:00 -')) {
         console.log('Encountered new section header at row:', i, '- stopping');
         break;
       }
