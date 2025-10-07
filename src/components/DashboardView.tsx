@@ -160,11 +160,10 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
           per: row[8]?.toString() || "",
           validFrom: row[9]?.toString() || "",
           validTo: row[10]?.toString() || "",
-        })).filter(rate => 
-          rate.rig && 
-          (rate.description.toLowerCase().includes('rig move') || 
-           rate.description.toLowerCase().includes('camp move'))
-        );
+        })).filter(rate => {
+          const desc = rate.description.toLowerCase();
+          return rate.rig && (desc.includes('rig move') || desc.includes('camp'));
+        });
 
         setActualRates(parsedRates);
         console.log("Loaded actual rates:", parsedRates.length, "rates");
@@ -187,6 +186,10 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     
     const filtered = actualRates.filter(rate => {
       if (rate.rig !== rigNumber) return false;
+
+      // Ensure we only consider rates with a valid USD Amount
+      const amountNum = parseFloat((rate.usdAmount || '').replace(/[^0-9.-]/g, ''));
+      if (isNaN(amountNum) || amountNum <= 0) return false;
       
       // Parse date strings (format: "44927" Excel serial or "DD/MM/YYYY")
       const parseExcelDate = (dateStr: string): Date => {
@@ -203,13 +206,18 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       };
 
       try {
-        const validFrom = parseExcelDate(rate.validFrom);
-        const validTo = parseExcelDate(rate.validTo);
-        const isValid = isWithinInterval(targetDate, { start: validFrom, end: validTo });
-        return isValid;
+        // If we have both dates and can parse them, apply the interval filter
+        if (rate.validFrom && rate.validTo) {
+          const validFrom = parseExcelDate(rate.validFrom);
+          const validTo = parseExcelDate(rate.validTo);
+          const isValid = isWithinInterval(targetDate, { start: validFrom, end: validTo });
+          return isValid;
+        }
+        // If dates are missing, consider the rate valid
+        return true;
       } catch (e) {
-        console.error("Error parsing date for rate:", rate, e);
-        return false;
+        console.warn("Date parse issue, including rate anyway:", rate, e);
+        return true;
       }
     });
     
