@@ -76,6 +76,10 @@ interface DashboardData {
   // Rig move rate tracking
   rigMoveRateId?: string;
   rigMoveAmountApplied: number;
+  rigMoveCurrency?: string; // Store currency at time of application
+  // Run tracking (for identifying first day of consecutive moves)
+  isFirstDayOfRun?: boolean;
+  hasValidRate?: boolean; // Whether a valid rate exists for this date
 }
 
 const RIGS = [
@@ -166,9 +170,6 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         });
 
         setActualRates(parsedRates);
-        console.log("Loaded actual rates:", parsedRates.length, "rates");
-        console.log("Unique rigs in rates:", [...new Set(parsedRates.map(r => r.rig))]);
-        console.log("Sample rates:", parsedRates.slice(0, 5));
       } catch (error) {
         console.error("Error loading actual rates:", error);
       }
@@ -180,9 +181,6 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   // Helper: Get rig move rates valid for a specific date and rig
   const getRigMoveRatesForDate = (rigNumber: string, dateStr: string): ActualRate[] => {
     const targetDate = parseISO(dateStr);
-    
-    console.log("Getting rates for rig:", rigNumber, "date:", dateStr);
-    console.log("Total actual rates:", actualRates.length);
     
     const filtered = actualRates.filter(rate => {
       if (rate.rig !== rigNumber) return false;
@@ -221,8 +219,71 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       }
     });
     
-    console.log("Filtered rates for", rigNumber, ":", filtered.length);
-    return filtered;
+    // Sort by validFrom (latest first) to pre-select most recent rate
+    const sorted = filtered.sort((a, b) => {
+      try {
+        const parseExcelDate = (dateStr: string): Date => {
+          const serial = parseFloat(dateStr);
+          if (!isNaN(serial)) {
+            const excelEpoch = new Date(1899, 11, 30);
+            excelEpoch.setDate(excelEpoch.getDate() + serial);
+            return excelEpoch;
+          }
+          return parseISO(dateStr);
+        };
+        
+        const dateA = parseExcelDate(a.validFrom || '0');
+        const dateB = parseExcelDate(b.validFrom || '0');
+        return dateB.getTime() - dateA.getTime(); // Descending (latest first)
+      } catch {
+        return 0;
+      }
+    });
+    
+    return sorted;
+  };
+
+  // Helper: Detect if current date is the first day of a rig move run
+  const isFirstDayOfRigMoveRun = async (rigNumber: string, currentDateISO: string, rigMoveHr: number): Promise<boolean> => {
+    if (!rigMoveHr || rigMoveHr <= 0) return false;
+
+    try {
+      // Get the previous day's data
+      const currentDate = parseISO(currentDateISO);
+      const prevDate = new Date(currentDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = format(prevDate, 'yyyy-MM-dd');
+
+      const { data: prevDayData } = await supabase
+        .from('extracted_ddor_data')
+        .select('rig_move_hr, rig_move_rate_id')
+        .eq('rig_number', rigNumber)
+        .eq('date', prevDateStr)
+        .maybeSingle();
+
+      // If no previous day OR previous day has no rig move hours, this is a first day
+      if (!prevDayData || !prevDayData.rig_move_hr || prevDayData.rig_move_hr <= 0) {
+        return true;
+      }
+
+      // Check if rate validity changed between previous day and current day
+      const prevRates = getRigMoveRatesForDate(rigNumber, prevDateStr);
+      const currRates = getRigMoveRatesForDate(rigNumber, currentDateISO);
+
+      // If prev day had valid rates but current day has different valid rates, this is a new run
+      if (prevDayData.rig_move_rate_id && prevRates.length > 0 && currRates.length > 0) {
+        const prevRateStillValid = currRates.some(r => r.no === prevDayData.rig_move_rate_id);
+        if (!prevRateStillValid) {
+          return true; // Rate validity flipped, this is a new first day
+        }
+      }
+
+      // Otherwise, it's a continuation of a run
+      return false;
+    } catch (error) {
+      console.error("Error checking first day of run:", error);
+      return true; // Default to first day on error
+    }
   };
 
   // Load data from database and merge with rig configs
@@ -899,6 +960,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       ...prev,
       rigMoveRateId: rateId,
       rigMoveAmountApplied: amount,
+      rigMoveCurrency: 'USD', // Store currency at application time
     }));
   };
 
@@ -918,6 +980,42 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       if (!result.success) {
         toast({ title: "Validation Error", description: result.error.errors[0].message, variant: "destructive" });
         return;
+      }
+
+      // Validation: If rig move hours > 0, ensure a rate is selected and valid
+      if (validationData.rigMoveHr > 0) {
+        const availableRates = getRigMoveRatesForDate(editingRig, editedValues.dateISO || dateStr);
+        
+        if (availableRates.length === 0) {
+          toast({ 
+            title: "Validation Error", 
+            description: "No Rig/Camp Move rate is valid on this date for this rig. Cannot save.", 
+            variant: "destructive" 
+          });
+          return;
+        }
+
+        if (!editedValues.rigMoveRateId) {
+          toast({ 
+            title: "Validation Error", 
+            description: "Please select a Rig/Camp Move rate before saving.", 
+            variant: "destructive" 
+          });
+          return;
+        }
+
+        // Check if this is the first day of the run
+        const isFirstDay = await isFirstDayOfRigMoveRun(editingRig, editedValues.dateISO || dateStr, validationData.rigMoveHr);
+        
+        // If it's a first day, ensure amount is applied
+        if (isFirstDay && (!editedValues.rigMoveAmountApplied || editedValues.rigMoveAmountApplied <= 0)) {
+          toast({ 
+            title: "Validation Error", 
+            description: "First day of rig move run must have a rate amount applied.", 
+            variant: "destructive" 
+          });
+          return;
+        }
       }
 
       setIsSaving(true);
@@ -942,6 +1040,14 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         if (insertError) throw insertError;
       }
 
+      // If this was the first day of a run and rate changed, update downstream days to 0
+      if (validationData.rigMoveHr > 0 && editedValues.rigMoveRateId) {
+        const isFirstDay = await isFirstDayOfRigMoveRun(editingRig, editedValues.dateISO || dateStr, validationData.rigMoveHr);
+        if (isFirstDay) {
+          await applyCarryForwardLogic(editingRig, editedValues.dateISO || dateStr, editedValues.rigMoveRateId);
+        }
+      }
+
       toast({ title: "Success", description: "Data saved successfully" });
       window.location.reload();
     } catch (error) {
@@ -949,6 +1055,56 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       toast({ title: "Error", description: "Failed to save data", variant: "destructive" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Helper: Apply carry-forward logic for rig move runs
+  const applyCarryForwardLogic = async (rigNumber: string, firstDayISO: string, rateId: string) => {
+    try {
+      const currentDate = parseISO(firstDayISO);
+      let checkDate = new Date(currentDate);
+      checkDate.setDate(checkDate.getDate() + 1);
+
+      // Get all subsequent days until we hit a break (no rig move hours or rate validity changes)
+      while (true) {
+        const checkDateStr = format(checkDate, 'yyyy-MM-dd');
+        
+        const { data: nextDayData } = await supabase
+          .from('extracted_ddor_data')
+          .select('*')
+          .eq('rig_number', rigNumber)
+          .eq('date', checkDateStr)
+          .maybeSingle();
+
+        // Stop if no data or no rig move hours
+        if (!nextDayData || !nextDayData.rig_move_hr || nextDayData.rig_move_hr <= 0) {
+          break;
+        }
+
+        // Check if the same rate is still valid on this day
+        const ratesForDay = getRigMoveRatesForDate(rigNumber, checkDateStr);
+        const rateStillValid = ratesForDay.some(r => r.no === rateId);
+
+        // Stop if rate is no longer valid (validity flipped)
+        if (!rateStillValid) {
+          break;
+        }
+
+        // Update this day to have 0 amount applied (continuation day)
+        await supabase
+          .from('extracted_ddor_data')
+          .update({ 
+            rig_move_amount_applied: 0,
+            rig_move_rate_id: rateId 
+          })
+          .eq('rig_number', rigNumber)
+          .eq('date', checkDateStr);
+
+        // Move to next day
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+    } catch (error) {
+      console.error("Error applying carry-forward logic:", error);
     }
   };
 
@@ -1134,7 +1290,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         {['operationHr', 'reduceHr', 'standbyHr', 'zeroHr', 'repairHr', 'amHr', 'specialHr', 'forceMajeureHr', 'stackingHr', 'rigMoveHr'].map((field) => (
                           <TableCell key={field} className="text-center px-2 py-1.5">
                             {isEditing ? (
-                              <Input type="number" step="0.01" min="0" max="24" value={displayRow[field as keyof DashboardData] || 0}
+                              <Input type="number" step="0.01" min="0" max="24" value={Number(displayRow[field as keyof DashboardData]) || 0}
                                 onChange={(e) => handleFieldChange(field as keyof DashboardData, parseFloat(e.target.value) || 0)} className="h-7 text-sm text-center w-20" />
                             ) : ((row[field as keyof DashboardData] as number).toFixed(2))}
                           </TableCell>
@@ -1142,33 +1298,40 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                         
                         <TableCell className="text-center px-2 py-1.5">
                           {isEditing && (displayRow.rigMoveHr || 0) > 0 ? (
-                            availableRates.length > 0 ? (
-                              <Select 
-                                value={displayRow.rigMoveRateId || ""} 
-                                onValueChange={handleRigMoveRateChange}
-                              >
-                                <SelectTrigger className="h-7 text-sm w-full bg-background">
-                                  <SelectValue placeholder="Select rate" />
-                                </SelectTrigger>
-                                <SelectContent 
-                                  position="popper" 
-                                  className="bg-popover border-border z-[100]"
-                                  sideOffset={5}
-                                  align="start"
-                                  avoidCollisions={true}
+                            <div className="flex flex-col gap-1">
+                              {availableRates.length > 0 ? (
+                                <Select 
+                                  value={displayRow.rigMoveRateId || (availableRates.length > 0 ? availableRates[0].no : "")} 
+                                  onValueChange={handleRigMoveRateChange}
                                 >
-                                  {availableRates.map((rate) => (
-                                    <SelectItem key={rate.no} value={rate.no}>
-                                      {rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No rates available</span>
-                            )
-                          ) : (
+                                  <SelectTrigger className="h-7 text-sm w-full bg-background border-border">
+                                    <SelectValue placeholder="Select rate" />
+                                  </SelectTrigger>
+                                  <SelectContent 
+                                    position="popper" 
+                                    className="bg-popover text-popover-foreground border-border shadow-md z-[100]"
+                                    sideOffset={5}
+                                    align="start"
+                                    avoidCollisions={true}
+                                  >
+                                    {availableRates.map((rate) => (
+                                      <SelectItem key={rate.no} value={rate.no} className="cursor-pointer hover:bg-accent">
+                                        {rate.description} - ${parseFloat(rate.usdAmount.replace(/[^0-9.-]/g, "")).toFixed(2)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs text-destructive font-semibold">⚠️ No valid rate</span>
+                                  <span className="text-[10px] text-destructive">Cannot save</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (displayRow.rigMoveHr || 0) > 0 && !isEditing ? (
                             <span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         
