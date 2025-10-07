@@ -27,7 +27,9 @@ export type Database = {
           reduce_hr: number | null
           remarks: string | null
           repair_hr: number | null
+          rig_move_amount_applied: number | null
           rig_move_hr: number | null
+          rig_move_rate_id: string | null
           rig_number: string
           special_hr: number | null
           stacking_hr: number | null
@@ -49,7 +51,9 @@ export type Database = {
           reduce_hr?: number | null
           remarks?: string | null
           repair_hr?: number | null
+          rig_move_amount_applied?: number | null
           rig_move_hr?: number | null
+          rig_move_rate_id?: string | null
           rig_number: string
           special_hr?: number | null
           stacking_hr?: number | null
@@ -71,7 +75,9 @@ export type Database = {
           reduce_hr?: number | null
           remarks?: string | null
           repair_hr?: number | null
+          rig_move_amount_applied?: number | null
           rig_move_hr?: number | null
+          rig_move_rate_id?: string | null
           rig_number?: string
           special_hr?: number | null
           stacking_hr?: number | null
