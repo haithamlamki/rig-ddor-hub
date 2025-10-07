@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Filter, Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Download, Filter, Search, ChevronLeft, ChevronRight, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMont
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
 
 interface DashboardData {
   date: string;
@@ -51,6 +52,23 @@ const RIGS = [
   "301", "302", "303", "304", "305", "306",
   "Hoist 1", "Hoist 2", "Hoist 3", "Hoist 4", "Hoist 5"
 ];
+
+// Validation schema for edited hour fields
+const hourFieldSchema = z.object({
+  operationHr: z.number().min(0).max(24),
+  reduceHr: z.number().min(0).max(24),
+  standbyHr: z.number().min(0).max(24),
+  zeroHr: z.number().min(0).max(24),
+  repairHr: z.number().min(0).max(24),
+  amHr: z.number().min(0).max(24),
+  specialHr: z.number().min(0).max(24),
+  forceMajeureHr: z.number().min(0).max(24),
+  stackingHr: z.number().min(0).max(24),
+  rigMoveHr: z.number().min(0).max(24),
+  client: z.string().max(100).trim(),
+  notReceivedDDOR: z.string().max(10).trim(),
+  remarks: z.string().max(1000).trim(),
+});
 
 // Generate data structure for all rigs
 const generateRigData = (dateStr: string): DashboardData[] => {
@@ -92,6 +110,11 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const [loading, setLoading] = useState(true);
   const [selectedRigToClear, setSelectedRigToClear] = useState<string>("");
   const { toast } = useToast();
+  
+  // Editing state
+  const [editingRig, setEditingRig] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Partial<DashboardData>>({});
+  const [isSaving, setIsSaving] = useState(false);
   
   // Month and date selection state
   const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
@@ -589,6 +612,286 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
     setCurrentMonth(addMonths(currentMonth, 1));
   };
 
+  // Handle starting edit mode for a row
+  const handleEditRow = (rig: string) => {
+    const rowData = data.find(r => r.rig === rig);
+    if (rowData) {
+      setEditingRig(rig);
+      setEditedValues({ ...rowData });
+    }
+  };
+
+  // Handle canceling edit
+  const handleCancelEdit = () => {
+    setEditingRig(null);
+    setEditedValues({});
+  };
+
+  // Handle input change in edit mode
+  const handleFieldChange = (field: keyof DashboardData, value: string | number) => {
+    setEditedValues(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-recalculate totalHrs when hour fields change
+      if (field.includes('Hr') && field !== 'totalHrs') {
+        const totalHrs = 
+          (Number(updated.operationHr) || 0) +
+          (Number(updated.reduceHr) || 0) +
+          (Number(updated.standbyHr) || 0) +
+          (Number(updated.zeroHr) || 0) +
+          (Number(updated.repairHr) || 0) +
+          (Number(updated.amHr) || 0) +
+          (Number(updated.specialHr) || 0) +
+          (Number(updated.forceMajeureHr) || 0) +
+          (Number(updated.stackingHr) || 0) +
+          (Number(updated.rigMoveHr) || 0);
+        updated.totalHrs = totalHrs;
+      }
+      
+      return updated;
+    });
+  };
+
+  // Handle saving edited row
+  const handleSaveRow = async () => {
+    if (!editingRig || !editedValues) return;
+
+    try {
+      // Validate inputs
+      const validationData = {
+        operationHr: Number(editedValues.operationHr) || 0,
+        reduceHr: Number(editedValues.reduceHr) || 0,
+        standbyHr: Number(editedValues.standbyHr) || 0,
+        zeroHr: Number(editedValues.zeroHr) || 0,
+        repairHr: Number(editedValues.repairHr) || 0,
+        amHr: Number(editedValues.amHr) || 0,
+        specialHr: Number(editedValues.specialHr) || 0,
+        forceMajeureHr: Number(editedValues.forceMajeureHr) || 0,
+        stackingHr: Number(editedValues.stackingHr) || 0,
+        rigMoveHr: Number(editedValues.rigMoveHr) || 0,
+        client: String(editedValues.client || "").trim(),
+        notReceivedDDOR: String(editedValues.notReceivedDDOR || "").trim(),
+        remarks: String(editedValues.remarks || "").trim(),
+      };
+
+      hourFieldSchema.parse(validationData);
+
+      setIsSaving(true);
+
+      // Save to database
+      const { error } = await supabase
+        .from('extracted_ddor_data')
+        .upsert({
+          rig_number: editingRig,
+          date: dateStr,
+          client: validationData.client,
+          operation_hr: validationData.operationHr,
+          reduce_hr: validationData.reduceHr,
+          standby_hr: validationData.standbyHr,
+          zero_hr: validationData.zeroHr,
+          repair_hr: validationData.repairHr,
+          am_hr: validationData.amHr,
+          special_hr: validationData.specialHr,
+          force_majeure_hr: validationData.forceMajeureHr,
+          stacking_hr: validationData.stackingHr,
+          rig_move_hr: validationData.rigMoveHr,
+          not_received_ddor: validationData.notReceivedDDOR,
+          remarks: validationData.remarks,
+          total_hrs: editedValues.totalHrs || 0,
+        }, {
+          onConflict: 'rig_number,date'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Saved",
+        description: `Successfully updated Rig ${editingRig}`,
+      });
+
+      // Reload data
+      setEditingRig(null);
+      setEditedValues({});
+      setLoading(true);
+      
+      const { data: extractedData, error: extractError } = await supabase
+        .from('extracted_ddor_data')
+        .select('*')
+        .eq('date', dateStr);
+
+      if (extractError) throw extractError;
+
+      const { data: rigConfigs } = await supabase.from('rig_configs').select('*');
+      const { data: rigRates } = await supabase.from('rig_rates').select('*');
+
+      // Re-process data (reuse existing logic)
+      const ratesMap = new Map((rigRates || []).map(rate => [rate.rig_number, rate]));
+      const dataMap = new Map(
+        (extractedData || []).map(item => {
+          const operationHr = Number(item.operation_hr) || 0;
+          const reduceHr = Number(item.reduce_hr) || 0;
+          const standbyHr = Number(item.standby_hr) || 0;
+          const zeroHr = Number(item.zero_hr) || 0;
+          const repairHr = Number(item.repair_hr) || 0;
+          const amHr = Number(item.am_hr) || 0;
+          const specialHr = Number(item.special_hr) || 0;
+          const forceMajeureHr = Number(item.force_majeure_hr) || 0;
+          const stackingHr = Number(item.stacking_hr) || 0;
+          const rigMoveHr = Number(item.rig_move_hr) || 0;
+          
+          const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                         amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+          
+          const isHoistRig = String(item.rig_number).toLowerCase().includes('hoist');
+          const rates = ratesMap.get(item.rig_number);
+          
+          let totalAmount = 0;
+          let totalFuelAmount = 0;
+          
+          if (isHoistRig) {
+            totalAmount = Number(item.total_amount) || 0;
+            totalFuelAmount = 0;
+          } else {
+            totalFuelAmount = rates ? (
+              ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+              ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+              ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+              ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+              ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+            ) : 0;
+            
+            totalAmount = rates ? (
+              (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+              (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+              (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+              (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+              (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+              (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+              (specialHr * (Number(rates.special_hr_rate) || 0)) +
+              (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+              (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+              (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0)) +
+              totalFuelAmount
+            ) : 0;
+          }
+          
+          return [
+            item.rig_number,
+            {
+              date: format(new Date(item.date), "dd-MMM-yy"),
+              rig: item.rig_number,
+              client: item.client || "",
+              operationHr,
+              reduceHr,
+              standbyHr,
+              zeroHr,
+              repairHr,
+              amHr,
+              specialHr,
+              forceMajeureHr,
+              stackingHr,
+              rigMoveHr,
+              notReceivedDDOR: item.not_received_ddor || "",
+              totalHrs,
+              remarks: item.remarks || "",
+              totalAmount,
+              totalFuelAmount,
+            }
+          ];
+        })
+      );
+
+      const configMap = new Map((rigConfigs || []).map(config => [config.rig_number, config.column_mappings]));
+
+      const fullData = RIGS.map(rig => {
+        const existingData = dataMap.get(rig);
+        if (existingData) return existingData;
+
+        const mappings = configMap.get(rig) as any[] || [];
+        const getFixedValue = (columnName: string) => {
+          const mapping = mappings.find((m: any) => m.columnName === columnName && m.isFixedData);
+          return mapping?.fixedValue || "";
+        };
+        
+        const getFixedNumber = (columnName: string) => {
+          const val = getFixedValue(columnName);
+          return val ? Number(val) : 0;
+        };
+
+        const operationHr = getFixedNumber("Operation Hr");
+        const reduceHr = getFixedNumber("Reduce Hr");
+        const standbyHr = getFixedNumber("Standby Hr");
+        const zeroHr = getFixedNumber("Zero Hr");
+        const repairHr = getFixedNumber("Repair Hr");
+        const amHr = getFixedNumber("AM Hr");
+        const specialHr = getFixedNumber("Special Hr");
+        const forceMajeureHr = getFixedNumber("Force Majeure Hr");
+        const stackingHr = getFixedNumber("STACKING Hr");
+        const rigMoveHr = getFixedNumber("Rig Move Hr");
+        
+        const totalHrs = operationHr + reduceHr + standbyHr + zeroHr + repairHr + 
+                       amHr + specialHr + forceMajeureHr + stackingHr + rigMoveHr;
+
+        const rates = ratesMap.get(rig);
+        
+        const totalAmount = rates ? (
+          (operationHr * (Number(rates.operation_hr_rate) || 0)) +
+          (reduceHr * (Number(rates.reduce_hr_rate) || 0)) +
+          (standbyHr * (Number(rates.standby_hr_rate) || 0)) +
+          (zeroHr * (Number(rates.zero_hr_rate) || 0)) +
+          (repairHr * (Number(rates.repair_hr_rate) || 0)) +
+          (amHr * (Number(rates.annual_maintenance_hr_rate) || 0)) +
+          (specialHr * (Number(rates.special_hr_rate) || 0)) +
+          (forceMajeureHr * (Number(rates.force_majeure_hr_rate) || 0)) +
+          (stackingHr * (Number(rates.stacking_hr_rate) || 0)) +
+          (rigMoveHr * (Number(rates.rig_move_hr_rate) || 0))
+        ) : 0;
+        
+        const totalFuelAmount = rates ? (
+          ((operationHr / 24) * (Number(rates.fuel_operation_day_rate_usd) || 0)) +
+          ((reduceHr / 24) * (Number(rates.fuel_reduce_day_rate_usd) || 0)) +
+          ((zeroHr / 24) * (Number(rates.fuel_zero_day_rate_usd) || 0)) +
+          ((repairHr / 24) * (Number(rates.fuel_repair_day_rate_usd) || 0)) +
+          ((specialHr / 24) * (Number(rates.fuel_special_day_rate_usd) || 0))
+        ) : 0;
+
+        return {
+          date: format(displayDate, "dd-MMM-yy"),
+          rig: getFixedValue("Rig") || rig,
+          client: getFixedValue("Client"),
+          operationHr,
+          reduceHr,
+          standbyHr,
+          zeroHr,
+          repairHr,
+          amHr,
+          specialHr,
+          forceMajeureHr,
+          stackingHr,
+          rigMoveHr,
+          notReceivedDDOR: totalHrs === 0 ? "1" : getFixedValue("Not Received DDOR"),
+          totalHrs,
+          remarks: getFixedValue("Remarks"),
+          totalAmount,
+          totalFuelAmount,
+        };
+      });
+
+      setData(fullData);
+
+    } catch (error: any) {
+      console.error('Error saving row:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save changes",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
@@ -817,49 +1120,144 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                   <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Total Fuel</TableHead>
                   <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Total Amount</TableHead>
                   <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Remarks</TableHead>
+                  <TableHead className="font-semibold text-center text-primary-foreground px-2 py-2">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((row, index) => (
-                  <TableRow key={index} className="hover:bg-muted/30">
-                    <TableCell className="font-medium whitespace-nowrap text-center px-2 py-1.5">{row.date}</TableCell>
-                    <TableCell className="whitespace-nowrap text-center px-2 py-1.5">
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {row.rig}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.client}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.operationHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.reduceHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.standbyHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.zeroHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.repairHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.amHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.specialHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.forceMajeureHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.stackingHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.rigMoveHr.toFixed(2)}</TableCell>
-                    <TableCell className="text-center px-2 py-1.5">{row.notReceivedDDOR}</TableCell>
-                    <TableCell className={cn(
-                      "text-center font-semibold px-2 py-1.5",
-                      row.totalHrs !== 24 && row.totalHrs > 0 && "text-destructive"
-                    )}>
-                      {row.totalHrs.toFixed(2)}
-                      {row.totalHrs !== 24 && row.totalHrs > 0 && (
-                        <span className="ml-1 text-xs">⚠️</span>
+                {filteredData.map((row, index) => {
+                  const isEditing = editingRig === row.rig;
+                  const displayRow = isEditing ? editedValues : row;
+                  
+                  return (
+                    <TableRow 
+                      key={index} 
+                      className={cn(
+                        "hover:bg-muted/30",
+                        isEditing && "bg-accent/20"
                       )}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-blue-600 dark:text-blue-500 px-2 py-1.5">
-                      ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-green-600 dark:text-green-500 px-2 py-1.5">
-                      ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="max-w-md truncate text-center px-2 py-1.5" title={row.remarks}>
-                      {row.remarks}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    >
+                      <TableCell className="font-medium whitespace-nowrap text-center px-2 py-1.5">{row.date}</TableCell>
+                      <TableCell className="whitespace-nowrap text-center px-2 py-1.5">
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {row.rig}
+                        </Badge>
+                      </TableCell>
+                      
+                      {/* Client - Editable */}
+                      <TableCell className="text-center px-2 py-1.5">
+                        {isEditing ? (
+                          <Input
+                            type="text"
+                            value={displayRow.client || ""}
+                            onChange={(e) => handleFieldChange('client', e.target.value)}
+                            className="h-7 text-sm text-center"
+                          />
+                        ) : row.client}
+                      </TableCell>
+                      
+                      {/* Hour fields - All editable */}
+                      {['operationHr', 'reduceHr', 'standbyHr', 'zeroHr', 'repairHr', 'amHr', 'specialHr', 'forceMajeureHr', 'stackingHr', 'rigMoveHr'].map((field) => (
+                        <TableCell key={field} className="text-center px-2 py-1.5">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="24"
+                              value={displayRow[field as keyof DashboardData] || 0}
+                              onChange={(e) => handleFieldChange(field as keyof DashboardData, parseFloat(e.target.value) || 0)}
+                              className="h-7 text-sm text-center w-20"
+                            />
+                          ) : (
+                            (row[field as keyof DashboardData] as number).toFixed(2)
+                          )}
+                        </TableCell>
+                      ))}
+                      
+                      {/* Not Received DDOR - Editable */}
+                      <TableCell className="text-center px-2 py-1.5">
+                        {isEditing ? (
+                          <Input
+                            type="text"
+                            value={displayRow.notReceivedDDOR || ""}
+                            onChange={(e) => handleFieldChange('notReceivedDDOR', e.target.value)}
+                            className="h-7 text-sm text-center w-16"
+                          />
+                        ) : row.notReceivedDDOR}
+                      </TableCell>
+                      
+                      {/* Total Hours - Auto-calculated */}
+                      <TableCell className={cn(
+                        "text-center font-semibold px-2 py-1.5",
+                        (displayRow.totalHrs || 0) !== 24 && (displayRow.totalHrs || 0) > 0 && "text-destructive"
+                      )}>
+                        {(displayRow.totalHrs || 0).toFixed(2)}
+                        {(displayRow.totalHrs || 0) !== 24 && (displayRow.totalHrs || 0) > 0 && (
+                          <span className="ml-1 text-xs">⚠️</span>
+                        )}
+                      </TableCell>
+                      
+                      {/* Total Fuel - Read-only */}
+                      <TableCell className="text-center font-semibold text-blue-600 dark:text-blue-500 px-2 py-1.5">
+                        ${row.totalFuelAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      
+                      {/* Total Amount - Read-only */}
+                      <TableCell className="text-center font-semibold text-green-600 dark:text-green-500 px-2 py-1.5">
+                        ${row.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      
+                      {/* Remarks - Editable */}
+                      <TableCell className="max-w-md text-center px-2 py-1.5">
+                        {isEditing ? (
+                          <Input
+                            type="text"
+                            value={displayRow.remarks || ""}
+                            onChange={(e) => handleFieldChange('remarks', e.target.value)}
+                            className="h-7 text-sm"
+                          />
+                        ) : (
+                          <span className="truncate" title={row.remarks}>{row.remarks}</span>
+                        )}
+                      </TableCell>
+                      
+                      {/* Actions */}
+                      <TableCell className="text-center px-2 py-1.5">
+                        {isEditing ? (
+                          <div className="flex gap-1 justify-center">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={handleSaveRow}
+                              disabled={isSaving}
+                            >
+                              <Check className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={handleCancelEdit}
+                              disabled={isSaving}
+                            >
+                              <X className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() => handleEditRow(row.rig)}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
