@@ -535,10 +535,15 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
         break;
       }
       
-      // Check if we've hit another block's band label or header
-      const rowText = rowToText(row);
-      if (extractBandLabel(rowText)) {
-        console.log(`Hit next block at row ${i} - stopping current block`);
+      // Check if we've hit another activity table header (From | To | Dur.)
+      const entries = Object.entries(row);
+      const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+      const hasFromHeader = byVal('from');
+      const hasToHeader = byVal('to');
+      const hasDurHeader = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+      
+      if (hasFromHeader && hasToHeader && hasDurHeader) {
+        console.log(`Hit next activity table header at row ${i} - stopping current block`);
         break;
       }
       
