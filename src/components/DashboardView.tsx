@@ -167,6 +167,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
         );
 
         setActualRates(parsedRates);
+        console.log("Loaded actual rates:", parsedRates.length, "rates");
+        console.log("Unique rigs in rates:", [...new Set(parsedRates.map(r => r.rig))]);
+        console.log("Sample rates:", parsedRates.slice(0, 5));
       } catch (error) {
         console.error("Error loading actual rates:", error);
       }
@@ -179,7 +182,10 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
   const getRigMoveRatesForDate = (rigNumber: string, dateStr: string): ActualRate[] => {
     const targetDate = parseISO(dateStr);
     
-    return actualRates.filter(rate => {
+    console.log("Getting rates for rig:", rigNumber, "date:", dateStr);
+    console.log("Total actual rates:", actualRates.length);
+    
+    const filtered = actualRates.filter(rate => {
       if (rate.rig !== rigNumber) return false;
       
       // Parse date strings (format: "44927" Excel serial or "DD/MM/YYYY")
@@ -199,11 +205,16 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       try {
         const validFrom = parseExcelDate(rate.validFrom);
         const validTo = parseExcelDate(rate.validTo);
-        return isWithinInterval(targetDate, { start: validFrom, end: validTo });
-      } catch {
+        const isValid = isWithinInterval(targetDate, { start: validFrom, end: validTo });
+        return isValid;
+      } catch (e) {
+        console.error("Error parsing date for rate:", rate, e);
         return false;
       }
     });
+    
+    console.log("Filtered rates for", rigNumber, ":", filtered.length);
+    return filtered;
   };
 
   // Load data from database and merge with rig configs
