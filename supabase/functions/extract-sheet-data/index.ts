@@ -373,15 +373,28 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
         const headerRow = sheetData[j];
         if (!headerRow || typeof headerRow !== 'object') continue;
         
-        // Check if this row contains "From", "TO", "Dur." headers
-        const entries = Object.entries(headerRow);
-        const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
-        const fromKey = byVal('from');
-        const toKey = byVal('to');
-        const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
-        const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
-        
-        if (fromKey && toKey && durKey) {
+      // Check if this row contains "From", "TO", "Dur." headers
+      const entries = Object.entries(headerRow);
+      const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+      const fromKey = byVal('from');
+      const toKey = byVal('to');
+      let durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+      const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
+      
+      // If durKey not found, check if there's an unlabeled column after "to" (common in some formats)
+      if (fromKey && toKey && !durKey) {
+        const toIndex = entries.findIndex(([k]) => k === toKey);
+        if (toIndex >= 0 && toIndex + 1 < entries.length) {
+          const nextCol = entries[toIndex + 1];
+          // Use the next column as duration if it's empty/unlabeled
+          if (!nextCol[1] || String(nextCol[1]).trim() === '') {
+            durKey = nextCol[0];
+            console.log(`Using unlabeled column "${durKey}" as duration (follows TO column)`);
+          }
+        }
+      }
+      
+      if (fromKey && toKey && durKey) {
           // Found header row for this block - peek at first data row to get firstFromTime
           let firstFromTime = -1;
           for (let k = j + 1; k < Math.min(j + 10, sheetData.length); k++) {
@@ -417,14 +430,26 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
       const row = sheetData[i];
       if (!row || typeof row !== 'object') continue;
       
-      const entries = Object.entries(row);
-      const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
-      const fromKey = byVal('from');
-      const toKey = byVal('to');
-      const durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
-      const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
-      
-      if (fromKey && toKey && durKey) {
+    const entries = Object.entries(row);
+    const byVal = (match: string) => entries.find(([k, v]) => String(v ?? '').trim().toLowerCase() === match)?.[0];
+    const fromKey = byVal('from');
+    const toKey = byVal('to');
+    let durKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('dur'))?.[0];
+    const rateKey = entries.find(([k, v]) => String(v ?? '').trim().toLowerCase().includes('rate'))?.[0];
+    
+    // If durKey not found, check if there's an unlabeled column after "to"
+    if (fromKey && toKey && !durKey) {
+      const toIndex = entries.findIndex(([k]) => k === toKey);
+      if (toIndex >= 0 && toIndex + 1 < entries.length) {
+        const nextCol = entries[toIndex + 1];
+        if (!nextCol[1] || String(nextCol[1]).trim() === '') {
+          durKey = nextCol[0];
+          console.log(`Using unlabeled column "${durKey}" as duration (follows TO column)`);
+        }
+      }
+    }
+    
+    if (fromKey && toKey && durKey) {
         // Peek at first data row to determine if this is a morning block (00:00-06:00)
         let firstFromTime = -1;
         let lastToTime = -1;
