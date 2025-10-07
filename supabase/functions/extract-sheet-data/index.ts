@@ -394,173 +394,138 @@ function extractActivityHours(sheetData: any[]): Record<string, number> {
 
   console.log('Processing activity table rows...');
   
-  // Track if we've seen late evening hours (indicating we're near end of day)
-  let hasSeenLateEvening = false;
-  let maxTimeSeen = 0;
+  // Helper: Convert time string/number to minutes after midnight
+  const parseTimeToMinutes = (timeValue: any): number => {
+    if (timeValue === null || timeValue === undefined) return -1;
+    if (typeof timeValue === 'number') {
+      // Excel decimal (0.5 = 12:00 = 720 minutes)
+      return Math.round(timeValue * 24 * 60);
+    }
+    const timeStr = String(timeValue).trim().replace(/;/g, ':');
+    if (!timeStr.includes(':')) return -1;
+    const parts = timeStr.split(':');
+    const h = parseInt(parts[0] || '0');
+    const m = parseInt(parts[1] || '0');
+    return h * 60 + m;
+  };
   
-  // Process activity table rows
+  // Detect section label - look backwards from activity table to find section header
+  let currentSectionLabel = '';
+  for (let i = activityTableStartRow - 1; i >= Math.max(0, activityTableStartRow - 10); i--) {
+    const row = sheetData[i];
+    if (!row || typeof row !== 'object') continue;
+    const rowText = rowToText(row).toUpperCase();
+    
+    // Look for patterns like "00:00 - 00:00 OPERATION" or "00:00 - 06:00 OPERATION"
+    const match = rowText.match(/(\d{1,2}):(\d{2})\s*-\s*(?:TO\s*-\s*)?(\d{1,2}):(\d{2})/);
+    if (match) {
+      currentSectionLabel = rowText;
+      console.log('Detected section label:', currentSectionLabel, 'at row:', i);
+      break;
+    }
+  }
+  
+  // Rule B: Skip entire section if it's labeled "00:00 - 06:00"
+  if (currentSectionLabel) {
+    const match = currentSectionLabel.match(/00:00\s*-\s*(?:TO\s*-\s*)?06:00/);
+    if (match) {
+      console.log('Section is "00:00 - 06:00" - skipping per Rule B');
+      return aggregatedHours;
+    }
+  }
+  
+  // Process activity table rows (Rule A: 00:00 - 00:00 table)
   for (let i = activityTableStartRow; i < sheetData.length; i++) {
     const row = sheetData[i];
     if (!row || typeof row !== 'object') continue;
 
-    // Detect and skip the yellow subsection banner like "00:00 - to - 06:00"
+    // Check if this is the start of a new section (Rule B check)
     const rowText = rowToText(row);
     if (hasBannerRange(rowText, 0, 6)) {
-      console.log('Encountered "00:00 - to - 06:00" section banner at row:', i, '- ignoring sub-table below');
-      break; // stop before the secondary table
+      console.log('Encountered "00:00 - 06:00" section at row:', i, '- stopping per Rule B');
+      break;
     }
 
-    // Check if this is a data row by looking at From column (supports headered and non-headered JSON)
+    // Check if this is a data row by looking at From column
     const fromValue = headerCols.from ? (row as any)[headerCols.from] : (row as any)['__EMPTY'];
     if (fromValue === null || fromValue === undefined) continue;
     
     // Skip section headers and empty rows
     const fromStr = String(fromValue).trim();
-    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update 00:00') || fromStr.includes('06:00 Update')) {
-      // If we hit a "06:00 Update" section, stop processing to avoid double-counting
-      if (fromStr.includes('06:00 Update')) {
-        console.log('Encountered "06:00 Update" section at row:', i, '- stopping to avoid double-counting hours');
+    if (fromStr.length === 0 || fromStr.includes('Prepared by') || fromStr.includes('Update') || fromStr.includes('From')) {
+      // If we hit another section header, stop
+      if (fromStr.includes('06:00') || fromStr.includes('00:00 -')) {
+        console.log('Encountered new section header at row:', i, '- stopping');
         break;
       }
       continue;
     }
     
-    // Skip non-time rows within the activity table instead of stopping early
+    // Skip non-time rows
     if (!looksLikeTime(fromValue)) {
       continue;
     }
+
+    // Parse From and TO times into minutes after midnight
+    const fromMinutes = parseTimeToMinutes(fromValue);
+    if (fromMinutes < 0) continue;
     
-    // Parse the start time to detect day boundaries
-    let startTimeHours = 0;
-    if (typeof fromValue === 'number') {
-      startTimeHours = fromValue * 24; // Convert Excel decimal to hours
-    } else {
-      const fromNorm = fromStr.replace(/;/g, ':');
-      if (fromNorm.includes(':')) {
-        const parts = fromNorm.split(':');
-        const h = parseInt(parts[0] || '0');
-        const m = parseInt(parts[1] || '0');
-        startTimeHours = h + m / 60;
+    const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
+    let toMinutes = parseTimeToMinutes(toValue);
+    
+    // Rule A: Treat TO == 00:00 as 24:00 (1440 minutes) for same-day calculation
+    if (toMinutes === 0 && fromMinutes > 0) {
+      toMinutes = 1440; // 24:00
+      console.log(`Row ${i}: TO is 00:00, treating as 24:00 (end of day)`);
+    }
+    
+    // Calculate duration from From/To (Rule A logic)
+    let minsFromTo = 0;
+    if (toMinutes >= 0) {
+      if (toMinutes < fromMinutes) {
+        // Wrap past midnight - clamp TO to 1440 (end of current day)
+        toMinutes = 1440;
+        console.log(`Row ${i}: TO < FROM (wrap detected), clamping TO to 24:00`);
       }
+      minsFromTo = Math.max(0, Math.min(toMinutes, 1440) - fromMinutes);
     }
     
-    // Detect if we've wrapped to the next day
-    // If we've seen times >= 20:00 and now see 0:00-7:00, we've crossed midnight into next day
-    if (hasSeenLateEvening && startTimeHours >= 0 && startTimeHours < 7) {
-      console.log('Detected next day boundary - wrapped from late evening back to early morning at row:', i);
-      break;
-    }
-    
-    // Track if we've seen late evening hours (20:00 or later)
-    if (startTimeHours >= 20) {
-      hasSeenLateEvening = true;
-    }
-    
-    // Track maximum time seen
-    if (startTimeHours > maxTimeSeen) {
-      maxTimeSeen = startTimeHours;
-    }
-    
-    // Stop processing if we encounter a day separator (next day boundary)
-    // This prevents extracting data beyond the first 24-hour period
-    if (fromStr.includes('00:00 - to -')) {
-      console.log('Reached next day boundary, stopping extraction at row:', i);
-      break;
-    }
-
-    // Column for Duration (Dur.)
+    // Parse Dur. column into minutes
     const durationValue = headerCols.dur ? (row as any)[headerCols.dur] : (row as any)['__EMPTY_2'];
-    let hours = 0;
-
-    // Parse duration cell (if present)
-    let hoursFromDur = 0;
+    let minsDur = 0;
     if (durationValue !== null && durationValue !== undefined) {
       if (typeof durationValue === 'number') {
-        // Excel stores times as decimal fractions of a day
-        hoursFromDur = durationValue * 24;
+        minsDur = Math.round(durationValue * 24 * 60);
       } else {
-        const durationStrRaw = String(durationValue).trim();
-        const durationStr = durationStrRaw.replace(/;/g, ':'); // support semicolons
-        if (durationStr.includes(':')) {
-          // Format: "2:00" or "1:30"
-          const parts = durationStr.split(':');
-          hoursFromDur = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
+        const durStr = String(durationValue).trim().replace(/;/g, ':');
+        if (durStr.includes(':')) {
+          const parts = durStr.split(':');
+          const h = parseInt(parts[0] || '0');
+          const m = parseInt(parts[1] || '0');
+          minsDur = h * 60 + m;
         } else {
-          // Decimal format (Excel day fraction)
-          const parsed = parseFloat(durationStr);
-          if (!isNaN(parsed)) {
-            hoursFromDur = parsed * 24;
-          }
+          const parsed = parseFloat(durStr);
+          if (!isNaN(parsed)) minsDur = Math.round(parsed * 24 * 60);
         }
       }
     }
-
-    // Compute duration from From -> TO (validation)
-    let hoursFromRange = 0;
-    const toValue = headerCols.to ? (row as any)[headerCols.to] : (row as any)['__EMPTY_1'];
-    if (toValue !== null && toValue !== undefined && looksLikeTime(toValue)) {
-      let toHours = 0;
-      const toStrRaw = String(toValue).trim();
-      if (typeof toValue === 'number') {
-        toHours = toValue * 24; // Excel decimal to hours
-      } else {
-        const toStr = toStrRaw.replace(/;/g, ':');
-        if (toStr.includes(':')) {
-          const p = toStr.split(':');
-          toHours = parseInt(p[0] || '0') + (parseInt(p[1] || '0') / 60);
-        } else {
-          const n = parseFloat(toStr);
-          if (!isNaN(n)) toHours = n * 24;
-        }
+    
+    // Double-validation: Take minimum of calculated duration and Dur. column
+    let finalMinutes = 0;
+    if (minsFromTo > 0 && minsDur > 0) {
+      finalMinutes = Math.min(minsFromTo, minsDur);
+      const diff = Math.abs(minsFromTo - minsDur);
+      if (diff > 2) {
+        console.log(`Row ${i} WARNING: Duration difference ${diff} mins (FromTo=${minsFromTo}, Dur=${minsDur}), using min=${finalMinutes}`);
       }
-      let diff = toHours - startTimeHours;
-      if (diff < 0) diff += 24; // wrap midnight
-      // Special case: 00:00 to 00:00 means full day
-      if (startTimeHours === 0 && toHours === 0) diff = 24;
-      hoursFromRange = diff;
+    } else if (minsFromTo > 0) {
+      finalMinutes = minsFromTo;
+    } else if (minsDur > 0) {
+      finalMinutes = minsDur;
     }
-
-    // Choose the most reliable duration
-    if (hoursFromDur > 0 && hoursFromRange > 0) {
-      const delta = Math.abs(hoursFromDur - hoursFromRange);
-      if (delta > 0.17) { // >10 minutes mismatch
-        console.log(`Duration mismatch: Dur=${hoursFromDur.toFixed(2)}h vs From/To=${hoursFromRange.toFixed(2)}h. Using From/To.`);
-        hours = hoursFromRange;
-      } else {
-        hours = hoursFromDur;
-      }
-    } else if (hoursFromDur > 0) {
-      hours = hoursFromDur;
-    } else if (hoursFromRange > 0) {
-      hours = hoursFromRange;
-    }
-
-    // If still zero, fallback: infer duration as the 3rd time-like value in the row
-
-    if (hours === 0) {
-      // Fallback: infer duration as the 3rd time-like value in the row
-      const vals = Object.values(row);
-      const timeLikes: any[] = [];
-      for (const v of vals) {
-        if (looksLikeTime(v)) timeLikes.push(v);
-      }
-      if (timeLikes.length >= 3) {
-        const durVal = timeLikes[2];
-        if (typeof durVal === 'number') {
-          hours = durVal * 24;
-        } else {
-          const dStr = String(durVal).trim();
-          if (dStr.includes(':')) {
-            const parts = dStr.split(':');
-            hours = parseInt(parts[0] || '0') + (parseInt(parts[1] || '0') / 60);
-          } else {
-            const parsed = parseFloat(dStr);
-            if (!isNaN(parsed)) hours = parsed * 24;
-          }
-        }
-      }
-      if (hours === 0) continue;
-    }
+    
+    const hours = finalMinutes / 60;
+    if (hours === 0) continue;
 
     // Look for rate type across known columns first, then all string cells in the row
     let rateType = '';
