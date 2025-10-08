@@ -730,14 +730,23 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       setLoading(true);
 
       // Delete from database
-      let query = supabase.from('extracted_ddor_data').delete().eq('date', dateStr);
-      
-      // If "ALL_RIGS" is selected, delete all rigs for this date, otherwise delete specific rig
-      if (selectedRigToClear !== 'ALL_RIGS') {
-        query = query.eq('rig_number', selectedRigToClear);
+      let error;
+      if (selectedRigToClear === 'ALL_RIGS') {
+        // Delete all rigs for this date
+        const { error: deleteError } = await supabase
+          .from('extracted_ddor_data')
+          .delete()
+          .eq('date', dateStr);
+        error = deleteError;
+      } else {
+        // Delete specific rig for this date
+        const { error: deleteError } = await supabase
+          .from('extracted_ddor_data')
+          .delete()
+          .eq('rig_number', selectedRigToClear)
+          .eq('date', dateStr);
+        error = deleteError;
       }
-      
-      const { error } = await query;
 
       if (error) throw error;
 
