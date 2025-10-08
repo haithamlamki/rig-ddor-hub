@@ -735,10 +735,6 @@ serve(async (req) => {
       // For Hoist rigs, extract daily totals from all dates in the file
       console.log('Detected Hoist rig - extracting daily billing totals...');
       hoistDailyTotals = extractHoistDailyTotals(sheetData);
-    } else {
-      // For regular rigs, extract activity table hours
-      console.log('Extracting activity table hours...');
-      activityHours = extractActivityHours(sheetData);
     }
 
     // Initialize Supabase client
@@ -781,6 +777,86 @@ serve(async (req) => {
     const fixedClient = (columnMappings.find((m: any) => m.columnName === 'Client' && m.isFixedData && m.fixedValue)?.fixedValue) as string | undefined;
     const sheetPreview = Array.isArray(sheetData) ? sheetData.slice(0, 200) : sheetData;
 
+    // For regular rigs, use AI to extract activity hours with better rate type identification
+    if (!isHoistRig) {
+      try {
+        console.log('Using AI to extract and classify activity hours...');
+        
+        const hoursPrompt = `You are an expert at analyzing DDOR (Daily Drilling Operations Report) spreadsheets.
+
+Analyze this spreadsheet data for rig ${rig} and extract ALL activity hours.
+
+IMPORTANT RULES:
+1. Look for activity tables with columns: From, TO, Dur, and a Rate column
+2. There may be MULTIPLE activity tables (e.g., "00:00 To 00:00" and "00:00 To 06:00")
+3. Process ALL tables - do NOT skip morning bands (00:00-06:00)
+4. For each activity row, identify the rate type from the Rate column
+5. Rate types include: Operation Rate, Reduced Rate, Standby, Zero, Repair, AM, Special, Force Majeure, STACKING, Rig Move
+6. Sum up total hours for each rate type across ALL tables
+7. Parse time durations correctly (e.g., "2:00" = 2 hours, "0:15" = 0.25 hours)
+
+Sheet Data:
+${JSON.stringify(sheetData, null, 2)}
+
+Return ONLY a JSON object with this structure:
+{
+  "Operation Hr": 0,
+  "Reduce Hr": 0,
+  "Standby Hr": 0,
+  "Zero Hr": 0,
+  "Repair Hr": 0,
+  "AM Hr": 0,
+  "Special Hr": 0,
+  "Force Majeure Hr": 0,
+  "STACKING Hr": 0,
+  "Rig Move Hr": 0
+}`;
+
+        const hoursResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "user", content: hoursPrompt }
+            ],
+            response_format: { type: "json_object" }
+          }),
+        });
+
+        if (hoursResponse.ok) {
+          const hoursData = await hoursResponse.json();
+          const hoursContent = hoursData.choices?.[0]?.message?.content;
+          if (hoursContent) {
+            const aiExtractedHours = JSON.parse(hoursContent);
+            console.log('AI extracted hours:', aiExtractedHours);
+            
+            // Validate and use AI extracted hours
+            const totalHours = Object.values(aiExtractedHours as Record<string, number>).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+            if (totalHours > 0 && totalHours <= 24) {
+              activityHours = aiExtractedHours;
+              console.log('Using AI-extracted hours (total:', totalHours, 'hours)');
+            } else {
+              console.log('AI hours validation failed, using fallback extraction');
+              activityHours = extractActivityHours(sheetData);
+            }
+          } else {
+            console.log('No AI content returned, using fallback extraction');
+            activityHours = extractActivityHours(sheetData);
+          }
+        } else {
+          console.log('AI request failed, using fallback extraction');
+          activityHours = extractActivityHours(sheetData);
+        }
+      } catch (aiError) {
+        console.error('AI extraction failed, using fallback:', aiError);
+        activityHours = extractActivityHours(sheetData);
+      }
+    }
+
     // Create a prompt for the AI to analyze and extract structured data
     const prompt = `You are an expert at analyzing Excel spreadsheet data from DDOR (Daily Drilling Operations Report) files.
 
@@ -795,7 +871,7 @@ ${extractableFields || 'All fields need to be extracted'}
 Sheet Data (preview only, up to 200 rows):
 ${JSON.stringify(sheetPreview, null, 2)}
 
-Extract and return a JSON object with this EXACT structure (use empty string for missing values, hours will be filled from activity table):
+Extract and return a JSON object with this EXACT structure (use empty string for missing values):
 {
   "extractedData": {
     "Date": "extracted or empty string",
