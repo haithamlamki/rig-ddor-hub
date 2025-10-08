@@ -777,12 +777,21 @@ serve(async (req) => {
     const fixedClient = (columnMappings.find((m: any) => m.columnName === 'Client' && m.isFixedData && m.fixedValue)?.fixedValue) as string | undefined;
     const sheetPreview = Array.isArray(sheetData) ? sheetData.slice(0, 200) : sheetData;
 
-    // For regular rigs, use AI to extract activity hours with better rate type identification
+    // For regular rigs, prefer our deterministic parser; fall back to AI only if parser total is off
     if (!isHoistRig) {
       try {
-        console.log('Using AI to extract and classify activity hours...');
-        
-        const hoursPrompt = `You are an expert at analyzing DDOR (Daily Drilling Operations Report) spreadsheets.
+        // 1) Parse locally first
+        const parserHours = extractActivityHours(sheetData);
+        const parserTotal = Object.values(parserHours).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
+        console.log(`Parser total hours: ${parserTotal}`);
+
+        if (parserTotal >= 23 && parserTotal <= 25) {
+          activityHours = parserHours;
+          console.log('✓ Using parser-extracted hours - validated');
+        } else {
+          console.log('Parser total not in [23-25], trying AI extraction...');
+
+          const hoursPrompt = `You are an expert at analyzing DDOR (Daily Drilling Operations Report) spreadsheets.
 
 Analyze this spreadsheet data for rig ${rig} and extract activity hours for THIS REPORT DATE ONLY.
 
@@ -822,51 +831,50 @@ Return ONLY a JSON object with totals for THIS REPORT DATE (must sum to 24):
   "Rig Move Hr": 0
 }`;
 
-        const hoursResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "user", content: hoursPrompt }
-            ],
-            response_format: { type: "json_object" }
-          }),
-        });
+          const hoursResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "user", content: hoursPrompt }
+              ],
+              response_format: { type: "json_object" }
+            }),
+          });
 
-        if (hoursResponse.ok) {
-          const hoursData = await hoursResponse.json();
-          const hoursContent = hoursData.choices?.[0]?.message?.content;
-          if (hoursContent) {
-            const aiExtractedHours = JSON.parse(hoursContent);
-            console.log('AI extracted hours:', JSON.stringify(aiExtractedHours, null, 2));
-            
-            // Validate and use AI extracted hours
-            const totalHours = Object.values(aiExtractedHours as Record<string, number>).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
-            console.log(`AI total hours: ${totalHours}`);
-            
-            // Accept if total is between 23-25 hours (allowing for rounding)
-            if (totalHours >= 23 && totalHours <= 25) {
-              activityHours = aiExtractedHours;
-              console.log('✓ Using AI-extracted hours - validated');
+          if (hoursResponse.ok) {
+            const hoursData = await hoursResponse.json();
+            const hoursContent = hoursData.choices?.[0]?.message?.content;
+            if (hoursContent) {
+              const aiExtractedHours = JSON.parse(hoursContent);
+              console.log('AI extracted hours:', JSON.stringify(aiExtractedHours, null, 2));
+              
+              const totalHours = Object.values(aiExtractedHours as Record<string, number>).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+              console.log(`AI total hours: ${totalHours}`);
+              
+              if (totalHours >= 23 && totalHours <= 25) {
+                activityHours = aiExtractedHours;
+                console.log('✓ Using AI-extracted hours - validated');
+              } else {
+                console.log(`✗ AI validation failed: total ${totalHours}h not in range [23-25]. Using parser results.`);
+                activityHours = parserHours;
+              }
             } else {
-              console.log(`✗ AI validation failed: total ${totalHours}h not in range [23-25]. Using fallback.`);
-              activityHours = extractActivityHours(sheetData);
+              console.log('No AI content returned, using parser results');
+              activityHours = parserHours;
             }
           } else {
-            console.log('No AI content returned, using fallback extraction');
-            activityHours = extractActivityHours(sheetData);
+            const errorText = await hoursResponse.text();
+            console.log('AI request failed:', hoursResponse.status, errorText);
+            activityHours = parserHours;
           }
-        } else {
-          const errorText = await hoursResponse.text();
-          console.log('AI request failed:', hoursResponse.status, errorText);
-          activityHours = extractActivityHours(sheetData);
         }
       } catch (aiError) {
-        console.error('AI extraction failed, using fallback:', aiError);
+        console.error('AI extraction failed, using parser results:', aiError);
         activityHours = extractActivityHours(sheetData);
       }
     }
