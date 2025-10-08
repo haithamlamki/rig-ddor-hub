@@ -730,17 +730,20 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
       setLoading(true);
 
       // Delete from database
-      const { error } = await supabase
-        .from('extracted_ddor_data')
-        .delete()
-        .eq('rig_number', selectedRigToClear)
-        .eq('date', dateStr);
+      let query = supabase.from('extracted_ddor_data').delete().eq('date', dateStr);
+      
+      // If "ALL_RIGS" is selected, delete all rigs for this date, otherwise delete specific rig
+      if (selectedRigToClear !== 'ALL_RIGS') {
+        query = query.eq('rig_number', selectedRigToClear);
+      }
+      
+      const { error } = await query;
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Cleared hours for rig ${selectedRigToClear}`,
+        description: selectedRigToClear === 'ALL_RIGS' ? 'Cleared hours for all rigs' : `Cleared hours for rig ${selectedRigToClear}`,
       });
 
       // Reload data
@@ -1184,6 +1187,7 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
               <Select value={selectedRigToClear} onValueChange={setSelectedRigToClear}>
                 <SelectTrigger className="w-[180px] bg-background"><SelectValue placeholder="Select rig to clear" /></SelectTrigger>
                 <SelectContent className="bg-background z-50">
+                  <SelectItem value="ALL_RIGS">Clear All</SelectItem>
                   {RIGS.map((rig) => (<SelectItem key={rig} value={rig}>Rig {rig}</SelectItem>))}
                 </SelectContent>
               </Select>
