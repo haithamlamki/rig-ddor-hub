@@ -784,21 +784,31 @@ serve(async (req) => {
         
         const hoursPrompt = `You are an expert at analyzing DDOR (Daily Drilling Operations Report) spreadsheets.
 
-Analyze this spreadsheet data for rig ${rig} and extract ALL activity hours.
+Analyze this spreadsheet data for rig ${rig} and extract activity hours for THIS REPORT DATE ONLY.
 
-IMPORTANT RULES:
-1. Look for activity tables with columns: From, TO, Dur, and a Rate column
-2. There may be MULTIPLE activity tables (e.g., "00:00 To 00:00" and "00:00 To 06:00")
-3. Process ALL tables - do NOT skip morning bands (00:00-06:00)
-4. For each activity row, identify the rate type from the Rate column
-5. Rate types include: Operation Rate, Reduced Rate, Standby, Zero, Repair, AM, Special, Force Majeure, STACKING, Rig Move
-6. Sum up total hours for each rate type across ALL tables
-7. Parse time durations correctly (e.g., "2:00" = 2 hours, "0:15" = 0.25 hours)
+CRITICAL RULES:
+1. Find activity tables with columns: From, TO, Dur (duration), and Rate
+2. The MAIN table is labeled "00:00 To 00:00" - this represents the FULL 24-hour day
+3. If there's a "00:00 To 06:00" table, this is NEXT DAY's morning activities - EXCLUDE IT
+4. For each row in the MAIN table only, extract the duration from the "Dur" column
+5. Classify each activity by its Rate column value:
+   - "Operation Rate" or "Operation-Rate" → Operation Hr
+   - "Reduced Rate" or "Reduced-Rate" → Reduce Hr
+   - "Standby" → Standby Hr
+   - "Zero" or "Zero Rate" → Zero Hr
+   - "Repair" → Repair Hr
+   - "AM" → AM Hr
+   - "Special" → Special Hr
+   - "Force Majeure" → Force Majeure Hr
+   - "STACKING" → STACKING Hr
+   - "Rig Move" → Rig Move Hr
+6. Parse durations: "2:00" = 2.0 hours, "0:15" = 0.25 hours, "8:15" = 8.25 hours
+7. Sum up all hours by rate type - total MUST equal 24 hours
 
 Sheet Data:
 ${JSON.stringify(sheetData, null, 2)}
 
-Return ONLY a JSON object with this structure:
+Return ONLY a JSON object with totals for THIS REPORT DATE (must sum to 24):
 {
   "Operation Hr": 0,
   "Reduce Hr": 0,
@@ -832,15 +842,18 @@ Return ONLY a JSON object with this structure:
           const hoursContent = hoursData.choices?.[0]?.message?.content;
           if (hoursContent) {
             const aiExtractedHours = JSON.parse(hoursContent);
-            console.log('AI extracted hours:', aiExtractedHours);
+            console.log('AI extracted hours:', JSON.stringify(aiExtractedHours, null, 2));
             
             // Validate and use AI extracted hours
             const totalHours = Object.values(aiExtractedHours as Record<string, number>).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
-            if (totalHours > 0 && totalHours <= 24) {
+            console.log(`AI total hours: ${totalHours}`);
+            
+            // Accept if total is between 23-25 hours (allowing for rounding)
+            if (totalHours >= 23 && totalHours <= 25) {
               activityHours = aiExtractedHours;
-              console.log('Using AI-extracted hours (total:', totalHours, 'hours)');
+              console.log('✓ Using AI-extracted hours - validated');
             } else {
-              console.log('AI hours validation failed, using fallback extraction');
+              console.log(`✗ AI validation failed: total ${totalHours}h not in range [23-25]. Using fallback.`);
               activityHours = extractActivityHours(sheetData);
             }
           } else {
@@ -848,7 +861,8 @@ Return ONLY a JSON object with this structure:
             activityHours = extractActivityHours(sheetData);
           }
         } else {
-          console.log('AI request failed, using fallback extraction');
+          const errorText = await hoursResponse.text();
+          console.log('AI request failed:', hoursResponse.status, errorText);
           activityHours = extractActivityHours(sheetData);
         }
       } catch (aiError) {
