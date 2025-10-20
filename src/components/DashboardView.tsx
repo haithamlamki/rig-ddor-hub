@@ -1266,7 +1266,9 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                             {isEditing ? (
                               <Input type="number" step="0.01" min="0" max="24" value={Number(displayRow[field as keyof DashboardData]) || 0}
                                 onChange={(e) => handleFieldChange(field as keyof DashboardData, parseFloat(e.target.value) || 0)} className="h-7 text-sm text-center w-20" />
-                            ) : ((row[field as keyof DashboardData] as number).toFixed(2))}
+                            ) : (
+                              (row[field as keyof DashboardData] as number) === 0 ? '' : (row[field as keyof DashboardData] as number).toFixed(2)
+                            )}
                           </TableCell>
                         ))}
                         
@@ -1303,14 +1305,12 @@ const DashboardView = ({ selectedDate }: DashboardViewProps) => {
                               )}
                             </div>
                           ) : (displayRow.rigMoveHr || 0) > 0 && !isEditing ? (
-                            <span className="text-sm">${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
-                          )}
+                            row.rigMoveAmountApplied === 0 ? '' : `$${row.rigMoveAmountApplied.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          ) : ''}
                         </TableCell>
                         
                         <TableCell className="text-center px-2 py-1.5">
-                          {isEditing ? <Input type="text" value={displayRow.notReceivedDDOR || ""} onChange={(e) => handleFieldChange('notReceivedDDOR', e.target.value)} className="h-7 text-sm text-center w-16" /> : row.notReceivedDDOR}
+                          {isEditing ? <Input type="text" value={displayRow.notReceivedDDOR || ""} onChange={(e) => handleFieldChange('notReceivedDDOR', e.target.value)} className="h-7 text-sm text-center w-16" /> : (row.notReceivedDDOR === '0' ? '' : row.notReceivedDDOR)}
                         </TableCell>
                         
                         <TableCell className={cn("text-center font-semibold px-2 py-1.5", (displayRow.totalHrs || 0) !== 24 && (displayRow.totalHrs || 0) > 0 && "text-destructive")}>
