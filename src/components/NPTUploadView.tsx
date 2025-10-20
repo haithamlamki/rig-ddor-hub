@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const RIGS = ["201", "202", "203", "204", "205", "206", "207", "208", "302", "303", "304"];
+const RIGS = ["103", "104", "105", "106", "107", "108", "109", "110", "111", "112", "201", "202", "203", "204", "205", "206", "207", "208", "209", "210", "211", "301", "302", "303", "304", "305", "306"];
 
 interface UploadedFile {
   rigNumber: string;
