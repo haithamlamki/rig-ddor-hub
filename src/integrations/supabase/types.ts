@@ -89,6 +89,125 @@ export type Database = {
         }
         Relationships: []
       }
+      npt_data_quality: {
+        Row: {
+          created_at: string
+          description: string | null
+          field_name: string
+          id: string
+          npt_record_id: string
+          quality_issue_type: string
+          severity: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          field_name: string
+          id?: string
+          npt_record_id: string
+          quality_issue_type: string
+          severity: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          field_name?: string
+          id?: string
+          npt_record_id?: string
+          quality_issue_type?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_npt_record"
+            columns: ["npt_record_id"]
+            isOneToOne: false
+            referencedRelation: "npt_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      npt_records: {
+        Row: {
+          action_party: string | null
+          contractual: string | null
+          corrective_action: string | null
+          created_at: string
+          data_quality_issues: Json | null
+          data_quality_score: number | null
+          date: string
+          department_responsibility: string | null
+          equipment: string | null
+          failure_description: string | null
+          failure_investigation_reports: string | null
+          future_action: string | null
+          hours: number
+          id: string
+          missing_fields: Json | null
+          month: string
+          notification_number_n2: string | null
+          npt_type: string | null
+          rig_number: string
+          root_cause: string | null
+          system: string | null
+          the_part: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          action_party?: string | null
+          contractual?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_quality_issues?: Json | null
+          data_quality_score?: number | null
+          date: string
+          department_responsibility?: string | null
+          equipment?: string | null
+          failure_description?: string | null
+          failure_investigation_reports?: string | null
+          future_action?: string | null
+          hours: number
+          id?: string
+          missing_fields?: Json | null
+          month: string
+          notification_number_n2?: string | null
+          npt_type?: string | null
+          rig_number: string
+          root_cause?: string | null
+          system?: string | null
+          the_part?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          action_party?: string | null
+          contractual?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_quality_issues?: Json | null
+          data_quality_score?: number | null
+          date?: string
+          department_responsibility?: string | null
+          equipment?: string | null
+          failure_description?: string | null
+          failure_investigation_reports?: string | null
+          future_action?: string | null
+          hours?: number
+          id?: string
+          missing_fields?: Json | null
+          month?: string
+          notification_number_n2?: string | null
+          npt_type?: string | null
+          rig_number?: string
+          root_cause?: string | null
+          system?: string | null
+          the_part?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       rig_configs: {
         Row: {
           column_mappings: Json
