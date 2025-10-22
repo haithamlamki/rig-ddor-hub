@@ -325,61 +325,51 @@ const NPTDashboardView = () => {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="w-full">
+            <Table className="table-fixed w-full text-xs">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[100px]">Rig Number</TableHead>
-                  <TableHead className="min-w-[80px]">Year</TableHead>
-                  <TableHead className="min-w-[100px]">Month</TableHead>
-                  <TableHead className="min-w-[120px]">Date</TableHead>
-                  <TableHead className="min-w-[80px]">Hours</TableHead>
-                  <TableHead className="min-w-[120px]">NPT Type</TableHead>
-                  <TableHead className="min-w-[150px]">System</TableHead>
-                  <TableHead className="min-w-[150px]">Equipment</TableHead>
-                  <TableHead className="min-w-[120px]">The Part</TableHead>
-                  <TableHead className="min-w-[120px]">Contractual</TableHead>
-                  <TableHead className="min-w-[180px]">Department Responsibility</TableHead>
-                  <TableHead className="min-w-[250px]">Failure Description</TableHead>
-                  <TableHead className="min-w-[180px]">Root Cause</TableHead>
-                  <TableHead className="min-w-[200px]">Corrective Action</TableHead>
-                  <TableHead className="min-w-[200px]">Future Action</TableHead>
-                  <TableHead className="min-w-[150px]">Action Party</TableHead>
-                  <TableHead className="min-w-[150px]">Notification Number (N2)</TableHead>
-                  <TableHead className="min-w-[200px]">Failure Investigation Reports</TableHead>
+                  <TableHead className="w-[4%] px-1">Rig #</TableHead>
+                  <TableHead className="w-[3%] px-1">Year</TableHead>
+                  <TableHead className="w-[4%] px-1">Month</TableHead>
+                  <TableHead className="w-[5%] px-1">Date</TableHead>
+                  <TableHead className="w-[4%] px-1">Hours</TableHead>
+                  <TableHead className="w-[6%] px-1">NPT Type</TableHead>
+                  <TableHead className="w-[6%] px-1">System</TableHead>
+                  <TableHead className="w-[7%] px-1">Equipment</TableHead>
+                  <TableHead className="w-[5%] px-1">Part</TableHead>
+                  <TableHead className="w-[5%] px-1">Contract</TableHead>
+                  <TableHead className="w-[7%] px-1">Dept Resp</TableHead>
+                  <TableHead className="w-[10%] px-1">Failure Desc</TableHead>
+                  <TableHead className="w-[8%] px-1">Root Cause</TableHead>
+                  <TableHead className="w-[8%] px-1">Corrective</TableHead>
+                  <TableHead className="w-[8%] px-1">Future</TableHead>
+                  <TableHead className="w-[5%] px-1">Party</TableHead>
+                  <TableHead className="w-[4%] px-1">N2 #</TableHead>
+                  <TableHead className="w-[6%] px-1">FIR</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {records.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell>{record.rig_number}</TableCell>
-                    <TableCell>{record.year || "-"}</TableCell>
-                    <TableCell>{record.month || "-"}</TableCell>
-                    <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
-                    <TableCell>{record.hours}</TableCell>
-                    <TableCell>{record.npt_type || "-"}</TableCell>
-                    <TableCell>{record.system || "-"}</TableCell>
-                    <TableCell>{record.equipment || "-"}</TableCell>
-                    <TableCell>{record.the_part || "-"}</TableCell>
-                    <TableCell>{record.contractual || "-"}</TableCell>
-                    <TableCell>{record.department_responsibility || "-"}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={record.failure_description}>
-                      {record.failure_description || "-"}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate" title={record.root_cause}>
-                      {record.root_cause || "-"}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate" title={record.corrective_action}>
-                      {record.corrective_action || "-"}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate" title={record.future_action}>
-                      {record.future_action || "-"}
-                    </TableCell>
-                    <TableCell>{record.action_party || "-"}</TableCell>
-                    <TableCell>{record.notification_number_n2 || "-"}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={record.failure_investigation_reports}>
-                      {record.failure_investigation_reports || "-"}
-                    </TableCell>
+                    <TableCell className="px-1 truncate" title={record.rig_number}>{record.rig_number}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.year?.toString()}>{record.year || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.month}>{record.month || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={format(new Date(record.date), "MMM dd, yyyy")}>{format(new Date(record.date), "MMM dd")}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.hours?.toString()}>{record.hours}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.npt_type}>{record.npt_type || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.system}>{record.system || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.equipment}>{record.equipment || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.the_part}>{record.the_part || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.contractual}>{record.contractual || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.department_responsibility}>{record.department_responsibility || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.failure_description}>{record.failure_description || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.root_cause}>{record.root_cause || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.corrective_action}>{record.corrective_action || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.future_action}>{record.future_action || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.action_party}>{record.action_party || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.notification_number_n2}>{record.notification_number_n2 || "-"}</TableCell>
+                    <TableCell className="px-1 truncate" title={record.failure_investigation_reports}>{record.failure_investigation_reports || "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
