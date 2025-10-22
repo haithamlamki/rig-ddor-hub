@@ -24,13 +24,23 @@ import { format } from "date-fns";
 interface NPTRecord {
   id: string;
   rig_number: string;
+  year: number;
+  month: string;
   date: string;
   hours: number;
+  npt_type: string;
   system: string;
   equipment: string;
-  root_cause: string;
+  the_part: string;
+  contractual: string;
   department_responsibility: string;
   failure_description: string;
+  root_cause: string;
+  corrective_action: string;
+  future_action: string;
+  action_party: string;
+  notification_number_n2: string;
+  failure_investigation_reports: string;
   data_quality_score: number;
 }
 
@@ -152,26 +162,44 @@ const NPTDashboardView = () => {
 
   const exportToCSV = () => {
     const headers = [
-      "Rig",
+      "Rig Number",
+      "Year",
+      "Month",
       "Date",
       "Hours",
+      "NPT Type",
       "System",
       "Equipment",
+      "The Part",
+      "Contractual",
+      "Department Responsibility",
+      "Failure Description",
       "Root Cause",
-      "Department",
-      "Description",
-      "Quality",
+      "Corrective Action",
+      "Future Action",
+      "Action Party",
+      "Notification Number (N2)",
+      "Failure Investigation Reports",
     ];
     const csvData = records.map((r) => [
       r.rig_number,
+      r.year || "",
+      r.month || "",
       r.date,
       r.hours,
+      r.npt_type || "",
       r.system || "",
       r.equipment || "",
-      r.root_cause || "",
+      r.the_part || "",
+      r.contractual || "",
       r.department_responsibility || "",
       r.failure_description || "",
-      r.data_quality_score,
+      r.root_cause || "",
+      r.corrective_action || "",
+      r.future_action || "",
+      r.action_party || "",
+      r.notification_number_n2 || "",
+      r.failure_investigation_reports || "",
     ]);
 
     const csv = [headers, ...csvData].map((row) => row.join(",")).join("\n");
@@ -228,7 +256,7 @@ const NPTDashboardView = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Rigs</SelectItem>
-              {["201", "202", "203", "204", "205", "206", "207", "208", "302", "303", "304"].map((rig) => (
+              {["103", "104", "105", "106", "107", "108", "109", "110", "111", "112", "201", "202", "203", "204", "205", "206", "207", "208", "209", "210", "211", "301", "302", "303", "304", "305", "306"].map((rig) => (
                 <SelectItem key={rig} value={rig}>
                   Rig {rig}
                 </SelectItem>
@@ -301,32 +329,56 @@ const NPTDashboardView = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Rig</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>System</TableHead>
-                  <TableHead>Equipment</TableHead>
-                  <TableHead>Root Cause</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Quality</TableHead>
+                  <TableHead className="min-w-[100px]">Rig Number</TableHead>
+                  <TableHead className="min-w-[80px]">Year</TableHead>
+                  <TableHead className="min-w-[100px]">Month</TableHead>
+                  <TableHead className="min-w-[120px]">Date</TableHead>
+                  <TableHead className="min-w-[80px]">Hours</TableHead>
+                  <TableHead className="min-w-[120px]">NPT Type</TableHead>
+                  <TableHead className="min-w-[150px]">System</TableHead>
+                  <TableHead className="min-w-[150px]">Equipment</TableHead>
+                  <TableHead className="min-w-[120px]">The Part</TableHead>
+                  <TableHead className="min-w-[120px]">Contractual</TableHead>
+                  <TableHead className="min-w-[180px]">Department Responsibility</TableHead>
+                  <TableHead className="min-w-[250px]">Failure Description</TableHead>
+                  <TableHead className="min-w-[180px]">Root Cause</TableHead>
+                  <TableHead className="min-w-[200px]">Corrective Action</TableHead>
+                  <TableHead className="min-w-[200px]">Future Action</TableHead>
+                  <TableHead className="min-w-[150px]">Action Party</TableHead>
+                  <TableHead className="min-w-[150px]">Notification Number (N2)</TableHead>
+                  <TableHead className="min-w-[200px]">Failure Investigation Reports</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {records.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell>{record.rig_number}</TableCell>
+                    <TableCell>{record.year || "-"}</TableCell>
+                    <TableCell>{record.month || "-"}</TableCell>
                     <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                     <TableCell>{record.hours}</TableCell>
+                    <TableCell>{record.npt_type || "-"}</TableCell>
                     <TableCell>{record.system || "-"}</TableCell>
                     <TableCell>{record.equipment || "-"}</TableCell>
+                    <TableCell>{record.the_part || "-"}</TableCell>
+                    <TableCell>{record.contractual || "-"}</TableCell>
+                    <TableCell>{record.department_responsibility || "-"}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={record.failure_description}>
+                      {record.failure_description || "-"}
+                    </TableCell>
                     <TableCell className="max-w-xs truncate" title={record.root_cause}>
                       {record.root_cause || "-"}
                     </TableCell>
-                    <TableCell>{record.department_responsibility || "-"}</TableCell>
-                    <TableCell>
-                      <span className={`font-semibold ${getQualityColor(record.data_quality_score)}`}>
-                        {record.data_quality_score}%
-                      </span>
+                    <TableCell className="max-w-xs truncate" title={record.corrective_action}>
+                      {record.corrective_action || "-"}
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate" title={record.future_action}>
+                      {record.future_action || "-"}
+                    </TableCell>
+                    <TableCell>{record.action_party || "-"}</TableCell>
+                    <TableCell>{record.notification_number_n2 || "-"}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={record.failure_investigation_reports}>
+                      {record.failure_investigation_reports || "-"}
                     </TableCell>
                   </TableRow>
                 ))}
